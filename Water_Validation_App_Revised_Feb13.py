@@ -504,6 +504,51 @@ def dsr_quantity_summary(df, param_cols):
     summary["site_param_counts"] = param_counts
 
     return summary
+
+def build_site_param_count_table(df, param_cols):
+    """
+    Build wide-format Site × Parameter count table.
+    """
+
+    site_col = find_col(df, COLUMN_MAP["site"])
+    if not site_col:
+        return pd.DataFrame()
+
+    df = df.copy()
+    df[site_col] = df[site_col].astype(str).str.strip()
+
+    records = []
+
+    for p in param_cols:
+        if p not in df.columns:
+            continue
+
+        counts = (
+            df.groupby(site_col)[p]
+            .apply(lambda x: x.notna().sum())
+            .reset_index(name="count")
+        )
+
+        counts["parameter"] = p
+        records.append(counts)
+
+    if not records:
+        return pd.DataFrame()
+
+    tall = pd.concat(records, ignore_index=True)
+
+    wide = tall.pivot(
+        index=site_col,
+        columns="parameter",
+        values="count"
+    ).fillna(0).reset_index()
+
+    return wide
+
+
+
+
+
 # -----------------------------------------------------------------------------
 # 8. DSR QUANTITY CHECKS + EXCLUSION REPORT + PARAM-LEVEL FILTER (FIXED)
 # -----------------------------------------------------------------------------
