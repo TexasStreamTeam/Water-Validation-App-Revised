@@ -640,10 +640,11 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     # Apply exclusions (set those site/param combos to NaN)
     # ---------------------------------------------------
     df_param_filtered = apply_param_level_exclusions(
-        df,
-        exclusion_report,
-        category_cols
-    )
+    df,
+    exclusion_report,
+    checked_params
+)
+
 
     # ---------------------------------------------------
     # Watershed rule: >= 3 sites
@@ -662,11 +663,10 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     # ---------------------------------------------------
     # Wide summary table
     # ---------------------------------------------------
-    wide_count_table = build_site_param_count_table(
-        df,
-        category_cols
-    )
-
+  wide_count_table = build_site_param_count_table(
+    df_param_filtered,
+    checked_params
+)
     return (
         df_param_filtered.reset_index(drop=True),
         exclusion_report,
