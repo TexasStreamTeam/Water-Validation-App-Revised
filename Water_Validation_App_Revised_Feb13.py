@@ -667,6 +667,7 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     df_param_filtered,
     checked_params
 )
+   
     return (
         df_param_filtered.reset_index(drop=True),
         exclusion_report,
