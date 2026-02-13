@@ -663,10 +663,11 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     # ---------------------------------------------------
     # Wide summary table
     # ---------------------------------------------------
-  wide_count_table = build_site_param_count_table(
+wide_count_table = build_site_param_count_table(
     df_param_filtered,
     checked_params
 )
+
    
     return (
         df_param_filtered.reset_index(drop=True),
