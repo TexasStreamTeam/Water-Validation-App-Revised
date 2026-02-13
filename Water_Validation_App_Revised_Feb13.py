@@ -441,7 +441,69 @@ def clean_riparian(df):
 
 
 # -----------------------------------------------------------------------------
-## -----------------------------------------------------------------------------
+# DSR SUMMARY + SITE-PARAM COUNT TABLE (MISSING FUNCTIONS)
+# -----------------------------------------------------------------------------
+
+def dsr_quantity_summary(df, param_cols):
+    """
+    Build diagnostic summary table:
+    - number of sites per watershed
+    - number of valid (non-NA) events per site per parameter
+    """
+
+    site_col = find_col(df, COLUMN_MAP["site"])
+    watershed_col = find_col(df, COLUMN_MAP["watershed"])
+
+    summary = {}
+
+    # --- Sites per watershed ---
+    if site_col and watershed_col:
+        ws_counts = (
+            df.groupby(watershed_col)[site_col]
+            .nunique()
+            .reset_index(name="n_sites")
+        )
+    elif site_col:
+        ws_counts = pd.DataFrame({
+            "Watershed": ["(file_total)"],
+            "n_sites": [df[site_col].nunique()]
+        })
+    else:
+        ws_counts = pd.DataFrame()
+
+    summary["watershed_site_counts"] = ws_counts
+
+    # --- Site × Parameter valid counts ---
+    if site_col:
+        df = df.copy()
+        df[site_col] = df[site_col].astype(str).str.strip()
+
+        records = []
+
+        for p in param_cols:
+            if p not in df.columns:
+                continue
+
+            counts = (
+                df.groupby(site_col)[p]
+                .apply(lambda x: x.notna().sum())
+                .reset_index(name="n_events")
+            )
+
+            counts["parameter"] = p
+            records.append(counts)
+
+        param_counts = (
+            pd.concat(records, ignore_index=True)
+            if records else
+            pd.DataFrame(columns=[site_col, "n_events", "parameter"])
+        )
+    else:
+        param_counts = pd.DataFrame()
+
+    summary["site_param_counts"] = param_counts
+
+    return summary
 # -----------------------------------------------------------------------------
 # 8. DSR QUANTITY CHECKS + EXCLUSION REPORT + PARAM-LEVEL FILTER (FIXED)
 # -----------------------------------------------------------------------------
