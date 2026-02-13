@@ -668,10 +668,11 @@ wide_count_table = build_site_param_count_table(
     checked_params
 )
 
-
-return(df_param_filtered.reset_index(drop=True),
+    return (
+        df_param_filtered.reset_index(drop=True),
         exclusion_report,
-        wide_count_table)
+        wide_count_table
+    )
 
 # -----------------------------------------------------------------------------
 # 9. OUTLIER CLEANER (IQR)
