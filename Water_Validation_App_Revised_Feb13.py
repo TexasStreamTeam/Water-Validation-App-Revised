@@ -538,6 +538,10 @@ def apply_param_level_exclusions(df, exclusion_report, category_cols):
     if exclusion_report is None or exclusion_report.empty or not site_col:
         return df
 
+    # --- NORMALIZE SITE COLUMN (critical fix) ---
+    df[site_col] = df[site_col].astype(str).str.strip()
+    exclusion_report[site_col] = exclusion_report[site_col].astype(str).str.strip()
+
     excl = exclusion_report[exclusion_report["decision"] == "EXCLUDE"]
 
     for _, row in excl.iterrows():
@@ -552,7 +556,6 @@ def apply_param_level_exclusions(df, exclusion_report, category_cols):
         df = df.dropna(subset=existing_param_cols, how="all")
 
     return df.reset_index(drop=True)
-
 
 def build_site_param_count_table(df, category_cols):
     """
