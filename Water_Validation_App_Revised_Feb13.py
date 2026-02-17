@@ -971,7 +971,7 @@ st.download_button(
             key="download_clean"
         )
 
-        buf_dsr = io.BytesIO()
+buf_dsr = io.BytesIO()
         dsr_ready_df.to_csv(buf_dsr, index=False)
         st.download_button(
             label="Download DSR-ready CSV",
