@@ -627,29 +627,33 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     # --------------------------------------------------
     param_cols = [c for c in category_cols if c in df.columns]
 
-    for col in param_cols:
+# Normalize site column once
+df["_site_norm"] = df[site_col].astype(str).str.strip()
 
-        counts = (
-            df.groupby(site_col)[col]
-            .apply(lambda x: x.notna().sum())
-        )
+for col in param_cols:
 
-        bad_sites = counts[counts < min_events].index.tolist()
+    counts = (
+        df.groupby("_site_norm")[col]
+        .apply(lambda x: x.notna().sum())
+    )
 
-        for site in bad_sites:
+    bad_sites = counts[counts < min_events].index.tolist()
 
-            df.loc[df[site_col] == site, col] = np.nan
+    for site in bad_sites:
 
-            exclusion_records.append({
-                "Watershed": (
-                    df.loc[df[site_col] == site, watershed_col].iloc[0]
-                    if watershed_col else ""
-                ),
-                "Site": site,
-                "Parameter": col,
-                "n_events": int(counts[site])
-            })
+        df.loc[df["_site_norm"] == site, col] = np.nan
 
+        exclusion_records.append({
+            "Watershed": (
+                df.loc[df["_site_norm"] == site, watershed_col].iloc[0]
+                if watershed_col else ""
+            ),
+            "Site": site,
+            "Parameter": col,
+            "n_events": int(counts[site])
+        })
+
+   
     # --------------------------------------------------
     # Drop rows where ALL parameters are NaN
     # --------------------------------------------------
@@ -658,8 +662,15 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
 
     exclusion_report = pd.DataFrame(exclusion_records)
     wide_counts = build_site_param_count_table(df, category_cols)
+    
 
     return df.reset_index(drop=True), exclusion_report, wide_counts
+    df = df.dropna(subset=param_cols, how="all")
+
+    df = df.drop(columns=["_site_norm"], errors="ignore")
+
+    exclusion_report = pd.DataFrame(exclusion_records)
+    wide_counts = build_site_param_count_table(df, category_cols)
 
 
 
