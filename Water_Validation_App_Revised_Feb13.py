@@ -614,7 +614,7 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     exclusion_records = []
     df_filtered = df_original.copy()
 
-   for col in numeric_cols:
+for col in numeric_cols:
 
     if col not in wide_counts.columns:
         continue
