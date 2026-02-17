@@ -593,7 +593,6 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     df = df.copy()
     site_col = find_col(df, COLUMN_MAP["site"])
     watershed_col = find_col(df, COLUMN_MAP["watershed"])
-    ecoli_col = find_col(df, COLUMN_MAP["ecoli_avg"])
 
     if not site_col:
         return df, pd.DataFrame(), pd.DataFrame()
@@ -604,16 +603,15 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     # RULE 1: ≥3 sites per watershed
     # --------------------------------------------------
     if watershed_col:
+
         site_counts = (
             df.groupby(watershed_col)[site_col]
             .nunique()
         )
 
-        bad_watersheds = site_counts[site_counts < 3].index
+        bad_watersheds = site_counts[site_counts < 3].index.tolist()
 
-        if len(bad_watersheds) > 0:
-            df = df[~df[watershed_col].isin(bad_watersheds)]
-
+        if bad_watersheds:
             for ws in bad_watersheds:
                 exclusion_records.append({
                     "Watershed": ws,
@@ -622,20 +620,25 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
                     "n_events": "",
                 })
 
-    # --------------------------------------------------
-    # RULE 2: ≥10 events — E. COLI ONLY
-    # --------------------------------------------------
-    if ecoli_col and site_col:
+            df = df[~df[watershed_col].isin(bad_watersheds)]
 
-        ecoli_counts = (
-            df.groupby(site_col)[ecoli_col]
+    # --------------------------------------------------
+    # RULE 2: ≥10 events per PARAMETER per SITE
+    # --------------------------------------------------
+    param_cols = [c for c in category_cols if c in df.columns]
+
+    for col in param_cols:
+
+        counts = (
+            df.groupby(site_col)[col]
             .apply(lambda x: x.notna().sum())
         )
 
-        bad_sites = ecoli_counts[ecoli_counts < min_events].index
+        bad_sites = counts[counts < min_events].index.tolist()
 
         for site in bad_sites:
-            df.loc[df[site_col] == site, ecoli_col] = np.nan
+
+            df.loc[df[site_col] == site, col] = np.nan
 
             exclusion_records.append({
                 "Watershed": (
@@ -643,14 +646,13 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
                     if watershed_col else ""
                 ),
                 "Site": site,
-                "Parameter": ecoli_col,
-                "n_events": int(ecoli_counts[site])
+                "Parameter": col,
+                "n_events": int(counts[site])
             })
 
     # --------------------------------------------------
-    # Drop rows where all parameters are NaN
+    # Drop rows where ALL parameters are NaN
     # --------------------------------------------------
-    param_cols = [c for c in category_cols if c in df.columns]
     if param_cols:
         df = df.dropna(subset=param_cols, how="all")
 
@@ -658,6 +660,7 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     wide_counts = build_site_param_count_table(df, category_cols)
 
     return df.reset_index(drop=True), exclusion_report, wide_counts
+
 
 
 
