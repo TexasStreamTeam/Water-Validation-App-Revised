@@ -764,14 +764,24 @@ with tabs[0]:
 
 has_data = "raw_df" in st.session_state
 
-clean_context = get_clean_dfs(st.session_state["raw_df"])
+if has_data:
+    raw_df = st.session_state["raw_df"]
+    clean_context = get_clean_dfs(raw_df)
 
-categories = clean_context["categories"]
-general_df = clean_context["general_df"]
-clean_df = clean_context["clean_df"]
-all_param_cols = clean_context["all_param_cols"]
-exclusion_report = clean_context["exclusion_report"]
-wide_counts = clean_context["wide_counts"]
+    categories = clean_context["categories"]
+    general_df = clean_context["general_df"]
+    clean_df = clean_context["clean_df"]
+    all_param_cols = clean_context["all_param_cols"]
+    exclusion_report = clean_context["exclusion_report"]
+    wide_counts = clean_context["wide_counts"]
+else:
+    categories = {}
+    general_df = pd.DataFrame()
+    clean_df = pd.DataFrame()
+    all_param_cols = []
+    exclusion_report = pd.DataFrame()
+    wide_counts = pd.DataFrame()
+
 
 # --- Tab 2: Site ID Description Check ---------------------------------------
 with tabs[1]:
