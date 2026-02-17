@@ -972,53 +972,62 @@ st.download_button(
         )
 
 buf_dsr = io.BytesIO()
-        dsr_ready_df.to_csv(buf_dsr, index=False)
-        st.download_button(
-            label="Download DSR-ready CSV",
-            data=buf_dsr.getvalue(),
-            file_name="cleaned_data_DSR_ready.csv",
-            mime="text/csv",
-            key="download_dsr"
-        )
+dsr_ready_df.to_csv(buf_dsr, index=False)
+
+st.download_button(
+    label="Download DSR-ready CSV",
+    data=buf_dsr.getvalue(),
+    file_name="cleaned_data_DSR_ready.csv",
+    mime="text/csv",
+    key="download_dsr"
+)
 
 if not exclusion_report.empty:
-            buf_excl = io.BytesIO()
-            exclusion_report.to_csv(buf_excl, index=False)
-            st.download_button(
-                label="Download Exclusion Report CSV",
-                data=buf_excl.getvalue(),
-                file_name="DSR_exclusion_report.csv",
-                mime="text/csv",
-                key="download_exclusion"
-            )
+    buf_excl = io.BytesIO()
+    exclusion_report.to_csv(buf_excl, index=False)
+
+    st.download_button(
+        label="Download Exclusion Report CSV",
+        data=buf_excl.getvalue(),
+        file_name="DSR_exclusion_report.csv",
+        mime="text/csv",
+        key="download_exclusion"
+    )
 
 if wide_counts is not None and not wide_counts.empty:
-            buf_wide = io.BytesIO()
-            wide_counts.to_csv(buf_wide, index=False)
-            st.download_button(
-                label="Download Site-Parameter Count Table CSV",
-                data=buf_wide.getvalue(),
-                file_name="site_parameter_event_counts.csv",
-                mime="text/csv",
-                key="download_site_param_counts"
-            )
+    buf_wide = io.BytesIO()
+    wide_counts.to_csv(buf_wide, index=False)
 
-# --- Tab 9: Outlier Cleaner (IQR) -------------------------------------------
+    st.download_button(
+        label="Download Site-Parameter Count Table CSV",
+        data=buf_wide.getvalue(),
+        file_name="site_parameter_event_counts.csv",
+        mime="text/csv",
+        key="download_site_param_counts"
+    )
+
+
+# --- Tab 9: Outlier Cleaner (IQR) --------------------------------------------
+
 with tabs[8]:
     st.subheader("Outlier Cleaner (IQR)")
 
     if not has_data:
         st.warning("Please upload a CSV file first.")
+
     else:
         numeric_cols = clean_df.select_dtypes(include=[np.number]).columns.tolist()
+
         if not numeric_cols:
             st.info("No numeric columns found for IQR-based outlier cleaning.")
+
         else:
             selected_cols = st.multiselect(
                 "Select numeric columns for IQR outlier cleaning:",
                 numeric_cols,
                 default=[]
             )
+
             k = st.slider(
                 "IQR multiplier (typical value is 1.5):",
                 min_value=0.5,
@@ -1028,15 +1037,22 @@ with tabs[8]:
             )
 
             if selected_cols:
-                filtered_df, mask_removed = iqr_outlier_cleaner(clean_df, selected_cols, k=k)
-                st.write(
-                    f"Number of rows removed as outliers: {mask_removed.sum()} "
-                    f"(out of {clean_df.shape[0]} cleaned rows)."
+                filtered_df, mask_removed = iqr_outlier_cleaner(
+                    clean_df,
+                    selected_cols,
+                    k=k
                 )
+
+                st.write(
+                    f"Number of rows removed as outliers: "
+                    f"{mask_removed.sum()} (out of {clean_df.shape[0]} cleaned rows)."
+                )
+
                 st.dataframe(filtered_df.head(50))
 
                 buf_iqr = io.BytesIO()
                 filtered_df.to_csv(buf_iqr, index=False)
+
                 st.download_button(
                     label="Download IQR-filtered CSV",
                     data=buf_iqr.getvalue(),
@@ -1044,6 +1060,7 @@ with tabs[8]:
                     mime="text/csv",
                     key="download_iqr"
                 )
+
             else:
                 st.info("Select at least one numeric column to perform outlier cleaning.")
 
