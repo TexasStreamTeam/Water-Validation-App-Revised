@@ -653,7 +653,6 @@ for col in numeric_cols:
     df_filtered = df_filtered.dropna(subset=existing_cols, how="all")
 
     exclusion_report = pd.DataFrame(exclusion_records)
-
     return df_filtered, exclusion_report, wide_counts
 
 
