@@ -87,10 +87,20 @@ COLUMN_MAP = {
 
 
 def find_col(df, candidates):
-    """Return the first column in df that matches the candidate list."""
-    for c in candidates:
-        if c in df.columns:
-            return c
+    """
+    Return first column that matches any candidate string,
+    ignoring special characters and case.
+    """
+    normalized_cols = {
+        c.lower().replace("µ", "u").replace("?", "u").strip(): c
+        for c in df.columns
+    }
+
+    for candidate in candidates:
+        key = candidate.lower().replace("µ", "u").replace("?", "u").strip()
+        if key in normalized_cols:
+            return normalized_cols[key]
+
     return None
 
 
