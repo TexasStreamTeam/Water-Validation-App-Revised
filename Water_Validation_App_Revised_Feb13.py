@@ -441,22 +441,21 @@ def clean_riparian(df):
 
 
 # -----------------------------------------------------------------------------
-# DSR SUMMARY + SITE-PARAM COUNT TABLE (MISSING FUNCTIONS)
+## -----------------------------------------------------------------------------
+# 8. DSR QUANTITY CHECKS + EXCLUSION REPORT + PARAM-LEVEL FILTER
 # -----------------------------------------------------------------------------
-
-def dsr_quantity_summary(df, param_cols):
+def dsr_quantity_summary(df, category_cols):
     """
-    Build diagnostic summary table:
-    - number of sites per watershed
-    - number of valid (non-NA) events per site per parameter
+    Compute:
+      - number of sites per watershed
+      - number of events per site per parameter (for selected columns)
     """
-
     site_col = find_col(df, COLUMN_MAP["site"])
     watershed_col = find_col(df, COLUMN_MAP["watershed"])
+    param_cols = category_cols[:]
 
     summary = {}
 
-    # --- Sites per watershed ---
     if site_col and watershed_col:
         ws_counts = (
             df.groupby(watershed_col)[site_col]
@@ -464,32 +463,24 @@ def dsr_quantity_summary(df, param_cols):
             .reset_index(name="n_sites")
         )
     elif site_col:
-        ws_counts = pd.DataFrame({
-            "Watershed": ["(file_total)"],
-            "n_sites": [df[site_col].nunique()]
-        })
+        ws_counts = pd.DataFrame(
+            {"Watershed": ["(file_total)"], "n_sites": [df[site_col].nunique()]}
+        )
     else:
-        ws_counts = pd.DataFrame()
+        ws_counts = pd.DataFrame(columns=["Watershed", "n_sites"])
 
     summary["watershed_site_counts"] = ws_counts
 
-    # --- Site × Parameter valid counts ---
-    if site_col:
-        df = df.copy()
-        df[site_col] = df[site_col].astype(str).str.strip()
-
+    if site_col and param_cols:
         records = []
-
         for p in param_cols:
             if p not in df.columns:
                 continue
-
             counts = (
                 df.groupby(site_col)[p]
                 .apply(lambda x: x.notna().sum())
                 .reset_index(name="n_events")
             )
-
             counts["parameter"] = p
             records.append(counts)
 
@@ -499,97 +490,35 @@ def dsr_quantity_summary(df, param_cols):
             pd.DataFrame(columns=[site_col, "n_events", "parameter"])
         )
     else:
-        param_counts = pd.DataFrame()
-
-    summary["site_param_counts"] = param_counts
-
-    return summary
-
-def build_site_param_count_table(df, param_cols):
-    """
-    Build wide-format Site × Parameter count table.
-    """
-
-    site_col = find_col(df, COLUMN_MAP["site"])
-    if not site_col:
-        return pd.DataFrame()
-
-    df = df.copy()
-    df[site_col] = df[site_col].astype(str).str.strip()
-
-    records = []
-
-    for p in param_cols:
-        if p not in df.columns:
-            continue
-
-        counts = (
-            df.groupby(site_col)[p]
-            .apply(lambda x: x.notna().sum())
-            .reset_index(name="count")
+        param_counts = pd.DataFrame(
+            columns=[site_col if site_col else "Site", "n_events", "parameter"]
         )
 
-        counts["parameter"] = p
-        records.append(counts)
+    summary["site_param_counts"] = param_counts
+    return summary
 
-    if not records:
-        return pd.DataFrame()
-
-    tall = pd.concat(records, ignore_index=True)
-
-    wide = tall.pivot(
-        index=site_col,
-        columns="parameter",
-        values="count"
-    ).fillna(0).reset_index()
-
-    return wide
-
-
-
-
-
-# -----------------------------------------------------------------------------
-# 8. DSR QUANTITY CHECKS + EXCLUSION REPORT + PARAM-LEVEL FILTER (FIXED)
-# -----------------------------------------------------------------------------
 
 def build_exclusion_report(df, checked_params, min_events=10):
     """
-    Build exclusion table based strictly on NON-NA counts per site/parameter.
+    Build a tidy table explaining which site-parameter combos are excluded
+    and why (insufficient valid values).
     """
     site_col = find_col(df, COLUMN_MAP["site"])
     if not site_col:
         return pd.DataFrame(columns=["Site", "parameter", "n_valid", "decision", "reason"])
 
-    df = df.copy()
-    df[site_col] = df[site_col].astype(str).str.strip()
+    summary = dsr_quantity_summary(df, checked_params)
+    param_counts = summary["site_param_counts"].copy()
 
-    records = []
-
-    for p in checked_params:
-        if p not in df.columns:
-            continue
-
-        counts = (
-            df.groupby(site_col)[p]
-            .apply(lambda x: x.notna().sum())
-            .reset_index(name="n_valid")
-        )
-
-        counts["parameter"] = p
-        records.append(counts)
-
-    if not records:
+    if param_counts.empty:
         return pd.DataFrame(columns=[site_col, "parameter", "n_valid", "decision", "reason"])
 
-    param_counts = pd.concat(records, ignore_index=True)
-
+    param_counts = param_counts.rename(columns={"n_events": "n_valid"})
     param_counts["decision"] = np.where(
         param_counts["n_valid"] >= min_events,
         "KEEP",
         "EXCLUDE"
     )
-
     param_counts["reason"] = np.where(
         param_counts["decision"] == "EXCLUDE",
         f"<{min_events} valid values for this parameter at this site",
@@ -599,52 +528,67 @@ def build_exclusion_report(df, checked_params, min_events=10):
     return param_counts[[site_col, "parameter", "n_valid", "decision", "reason"]]
 
 
-def apply_param_level_exclusions(df, exclusion_report, checked_params):
+def apply_param_level_exclusions(df, exclusion_report, category_cols):
     """
-    Completely removes site–parameter combinations marked EXCLUDE.
-    Then drops rows where ALL checked parameters are NaN.
+    For every site-parameter combo marked EXCLUDE, set that parameter to NaN
+    for that site only. Then drop rows where ALL category parameters are NaN.
     """
     df = df.copy()
     site_col = find_col(df, COLUMN_MAP["site"])
-
     if exclusion_report is None or exclusion_report.empty or not site_col:
         return df
 
-    df[site_col] = df[site_col].astype(str).str.strip()
-    exclusion_report[site_col] = exclusion_report[site_col].astype(str).str.strip()
-
-    # Identify exclusions
     excl = exclusion_report[exclusion_report["decision"] == "EXCLUDE"]
 
     for _, row in excl.iterrows():
-        site_val = row[site_col]
-        param = row["parameter"]
-
-        if param not in df.columns:
+        s = row[site_col]
+        p = row["parameter"]
+        if p not in df.columns:
             continue
+        df.loc[df[site_col] == s, p] = np.nan
 
-        df.loc[df[site_col] == site_val, param] = np.nan
-
-    # Drop rows where ALL checked parameters are NaN
-    existing_params = [c for c in checked_params if c in df.columns]
-
-    if existing_params:
-        df = df.dropna(subset=existing_params, how="all")
+    existing_param_cols = [c for c in category_cols if c in df.columns]
+    if existing_param_cols:
+        df = df.dropna(subset=existing_param_cols, how="all")
 
     return df.reset_index(drop=True)
 
 
+def build_site_param_count_table(df, category_cols):
+    """
+    Create wide pivot table: rows=site, columns=parameters, values=#valid events.
+    """
+    site_col = find_col(df, COLUMN_MAP["site"])
+    if not site_col:
+        return pd.DataFrame()
+
+    summary = dsr_quantity_summary(df, category_cols)
+    pc = summary["site_param_counts"].copy()
+    if pc.empty:
+        return pd.DataFrame()
+
+    wide = pc.pivot_table(
+        index=site_col,
+        columns="parameter",
+        values="n_events",
+        aggfunc="first",
+        fill_value=0
+    ).reset_index()
+
+    return wide
+
+
 def filter_dsr_ready(df, category_cols, min_events=10):
     """
-    FINAL DSR FILTER:
+    Apply DSR filtering:
+      - Require >= min_events valid values PER SITE/PARAM
+      - E. coli rule applies ONLY to ecoli_avg column
+      - Watershed must have >=3 sites (if watershed column exists)
 
-    - ≥ min_events per site per parameter
-    - E. coli rule applies ONLY to ecoli_avg
-    - ≥3 sites per watershed (if watershed exists)
+    Returns:
+        df_filtered, exclusion_report, wide_count_table
     """
-
     df = df.copy()
-
     site_col = find_col(df, COLUMN_MAP["site"])
     watershed_col = find_col(df, COLUMN_MAP["watershed"])
     ecoli_avg_col = find_col(df, COLUMN_MAP["ecoli_avg"])
@@ -653,39 +597,38 @@ def filter_dsr_ready(df, category_cols, min_events=10):
         empty = pd.DataFrame()
         return df, empty, empty
 
-    df[site_col] = df[site_col].astype(str).str.strip()
-
     # ---------------------------------------------------
-    # Build checked parameter list (E. coli logic fixed)
+    # Build parameter list to check
     # ---------------------------------------------------
     checked_params = []
-
-    ecoli_subcols = []
-    if ecoli_avg_col:
-        ecoli_subcols = [
-            find_col(df, COLUMN_MAP[k]) for k in [
-                "ecoli_cfu1","ecoli_cfu2","ecoli_colonies1","ecoli_colonies2",
-                "ecoli_size1","ecoli_size2","ecoli_dil1","ecoli_dil2",
-                "ecoli_temp","ecoli_hold","ecoli_blank_qc",
-                "ecoli_incubation_qc","ecoli_optimal_colony"
-            ]
-        ]
-        ecoli_subcols = [c for c in ecoli_subcols if c]
 
     for p in category_cols:
         if p not in df.columns:
             continue
 
+        # If ecoli_avg exists:
         if ecoli_avg_col:
+            # Check ecoli_avg
             if p == ecoli_avg_col:
                 checked_params.append(p)
-            elif p not in ecoli_subcols:
-                checked_params.append(p)
+            else:
+                # Skip other E. coli sub-columns
+                ecoli_subcols = [
+                    find_col(df, COLUMN_MAP[k]) for k in [
+                        "ecoli_cfu1","ecoli_cfu2","ecoli_colonies1","ecoli_colonies2",
+                        "ecoli_size1","ecoli_size2","ecoli_dil1","ecoli_dil2",
+                        "ecoli_temp","ecoli_hold","ecoli_blank_qc",
+                        "ecoli_incubation_qc","ecoli_optimal_colony"
+                    ]
+                ]
+                if p not in ecoli_subcols:
+                    checked_params.append(p)
         else:
+            # No ecoli column → check everything normally
             checked_params.append(p)
 
     # ---------------------------------------------------
-    # Build exclusion report
+    # Build exclusion report (< min_events per site/param)
     # ---------------------------------------------------
     exclusion_report = build_exclusion_report(
         df,
@@ -694,40 +637,37 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     )
 
     # ---------------------------------------------------
-    # Apply exclusions strictly
+    # Apply exclusions (set those site/param combos to NaN)
     # ---------------------------------------------------
-    df_filtered = apply_param_level_exclusions(
+    df_param_filtered = apply_param_level_exclusions(
         df,
         exclusion_report,
         checked_params
     )
 
     # ---------------------------------------------------
-    # Watershed rule (≥3 sites)
+    # Watershed rule: >= 3 sites
     # ---------------------------------------------------
     if watershed_col:
         ws_counts = (
-            df_filtered.groupby(watershed_col)[site_col]
+            df_param_filtered.groupby(watershed_col)[site_col]
             .nunique()
             .reset_index(name="n_sites")
         )
-
         good_ws = ws_counts[ws_counts["n_sites"] >= 3][watershed_col]
-
-        df_filtered = df_filtered[
-            df_filtered[watershed_col].isin(good_ws)
+        df_param_filtered = df_param_filtered[
+            df_param_filtered[watershed_col].isin(good_ws)
         ]
 
     # ---------------------------------------------------
-    # Rebuild count table AFTER filtering
+    # Wide summary table
     # ---------------------------------------------------
     wide_count_table = build_site_param_count_table(
-        df_filtered,
-        checked_params
-    )
-
+    df_param_filtered,
+    checked_params
+)
     return (
-        df_filtered.reset_index(drop=True),
+        df_param_filtered.reset_index(drop=True),
         exclusion_report,
         wide_count_table
     )
@@ -758,21 +698,33 @@ def iqr_outlier_cleaner(df, cols, k=1.5):
 
 # -----------------------------------------------------------------------------
 # 10. Helper: compute all cleaned dfs
-# -----------------------------------------------------------------------------
-def get_clean_dfs(raw_df):
-    """Run the full cleaning pipeline & categorization."""
+# ---------------------------------------------def get_clean_dfs(raw_df):
+    """Run full cleaning pipeline, including automatic 10-event rule."""
+
     cats = categorize_columns(raw_df)
+
     gen_df = general_cleaning(raw_df)
     core_df = clean_core(gen_df)
     ecoli_df = clean_ecoli(core_df)
     adv_df = clean_advanced(ecoli_df)
     rip_df = clean_riparian(adv_df)
+
     all_param_cols = cats["core"] + cats["ecoli"] + cats["advanced"]
+
+    # 🔹 APPLY 10-EVENT PARAMETER FILTER AUTOMATICALLY
+    dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
+        rip_df,
+        all_param_cols,
+        min_events=10
+    )
+
     return {
         "categories": cats,
         "general_df": gen_df,
-        "clean_df": rip_df,
+        "clean_df": dsr_ready_df,   # <-- NOW FILTERED
         "all_param_cols": all_param_cols,
+        "exclusion_report": exclusion_report,
+        "wide_counts": wide_counts,
     }
 
 
@@ -812,13 +764,14 @@ with tabs[0]:
 
 has_data = "raw_df" in st.session_state
 
-clean_context = None
-if has_data:
-    clean_context = get_clean_dfs(st.session_state["raw_df"])
-    categories = clean_context["categories"]
-    general_df = clean_context["general_df"]
-    clean_df = clean_context["clean_df"]
-    all_param_cols = clean_context["all_param_cols"]
+clean_context = get_clean_dfs(st.session_state["raw_df"])
+
+categories = clean_context["categories"]
+general_df = clean_context["general_df"]
+clean_df = clean_context["clean_df"]
+all_param_cols = clean_context["all_param_cols"]
+exclusion_report = clean_context["exclusion_report"]
+wide_counts = clean_context["wide_counts"]
 
 # --- Tab 2: Site ID Description Check ---------------------------------------
 with tabs[1]:
@@ -969,7 +922,18 @@ with tabs[7]:
         st.markdown("**Number of valid events per parameter per site**")
         st.dataframe(summary["site_param_counts"])
 
-        apply_dsr_filter = st.checkbox(
+      st.success(
+    f"Number of rows after 10-event parameter filtering: {clean_df.shape[0]}"
+)
+
+st.markdown("### Exclusion Report")
+st.dataframe(exclusion_report)
+
+st.markdown("### Site × Parameter Count Table (wide)")
+st.dataframe(wide_counts)
+
+dsr_ready_df = clean_df.copy()
+
             "Apply DSR filter (≥3 sites per watershed AND ≥10 events per parameter per site)",
             value=False
         )
