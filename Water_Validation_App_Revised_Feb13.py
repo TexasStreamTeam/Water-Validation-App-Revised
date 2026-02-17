@@ -487,12 +487,10 @@ def dsr_quantity_summary(df, category_cols):
             if p not in df.columns:
                 continue
             counts = (
-                df.groupby(site_col)[p]
-                .apply(lambda x: x.notna().sum())
-                .reset_index(name="n_events")
-            )
-            counts["parameter"] = p
-            records.append(counts)
+    df.assign(_site_norm=df[site_col].astype(str).str.strip())
+      .groupby("_site_norm")[col]
+      .apply(lambda x: x.notna().sum())
+)
 
         param_counts = (
             pd.concat(records, ignore_index=True)
