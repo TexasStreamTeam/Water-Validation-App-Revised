@@ -668,7 +668,7 @@ df = df.drop(columns=["_site_norm"], errors="ignore")
 exclusion_report = pd.DataFrame(exclusion_records)
 wide_counts = build_site_param_count_table(df, category_cols)
 
-return df.reset_index(drop=True), exclusion_report, wide_counts
+    return df.reset_index(drop=True), exclusion_report, wide_counts
     
  
 
