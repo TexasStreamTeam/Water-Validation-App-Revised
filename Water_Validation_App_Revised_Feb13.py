@@ -582,95 +582,121 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     """
     Apply DSR filtering:
       - Require >= min_events valid values PER SITE/PARAM
-      - E. coli rule applies ONLY to ecoli_avg column
-      - Watershed must have >=3 sites (if watershed column exists)
+      - Watershed must have >=3 sites PER PARAMETER (if watershed column exists)
+      - Remove failing parameter values ONLY (do NOT drop entire rows)
 
     Returns:
         df_filtered, exclusion_report, wide_count_table
     """
+
     df = df.copy()
+
     site_col = find_col(df, COLUMN_MAP["site"])
     watershed_col = find_col(df, COLUMN_MAP["watershed"])
-    ecoli_avg_col = find_col(df, COLUMN_MAP["ecoli_avg"])
 
     if not site_col:
         empty = pd.DataFrame()
         return df, empty, empty
 
-    # ---------------------------------------------------
-    # Build parameter list to check
-    # ---------------------------------------------------
-    checked_params = []
+    exclusion_records = []
 
-    for p in category_cols:
-        if p not in df.columns:
+    # ---------------------------------------------------------
+    # STEP 1 — Remove parameters failing >= min_events per site
+    # ---------------------------------------------------------
+    df_filtered = df.copy()
+
+    for col in category_cols:
+        if col not in df_filtered.columns:
             continue
 
-        # If ecoli_avg exists:
-        if ecoli_avg_col:
-            # Check ecoli_avg
-            if p == ecoli_avg_col:
-                checked_params.append(p)
-            else:
-                # Skip other E. coli sub-columns
-                ecoli_subcols = [
-                    find_col(df, COLUMN_MAP[k]) for k in [
-                        "ecoli_cfu1","ecoli_cfu2","ecoli_colonies1","ecoli_colonies2",
-                        "ecoli_size1","ecoli_size2","ecoli_dil1","ecoli_dil2",
-                        "ecoli_temp","ecoli_hold","ecoli_blank_qc",
-                        "ecoli_incubation_qc","ecoli_optimal_colony"
-                    ]
-                ]
-                if p not in ecoli_subcols:
-                    checked_params.append(p)
-        else:
-            # No ecoli column → check everything normally
-            checked_params.append(p)
-
-    # ---------------------------------------------------
-    # Build exclusion report (< min_events per site/param)
-    # ---------------------------------------------------
-    exclusion_report = build_exclusion_report(
-        df,
-        checked_params,
-        min_events=min_events
-    )
-
-    # ---------------------------------------------------
-    # Apply exclusions (set those site/param combos to NaN)
-    # ---------------------------------------------------
-    df_param_filtered = apply_param_level_exclusions(
-        df,
-        exclusion_report,
-        checked_params
-    )
-
-    # ---------------------------------------------------
-    # Watershed rule: >= 3 sites
-    # ---------------------------------------------------
-    if watershed_col:
-        ws_counts = (
-            df_param_filtered.groupby(watershed_col)[site_col]
-            .nunique()
-            .reset_index(name="n_sites")
+        counts = (
+            df_filtered[df_filtered[col].notna()]
+            .groupby(site_col)
+            .size()
         )
-        good_ws = ws_counts[ws_counts["n_sites"] >= 3][watershed_col]
-        df_param_filtered = df_param_filtered[
-            df_param_filtered[watershed_col].isin(good_ws)
-        ]
 
-    # ---------------------------------------------------
-    # Wide summary table
-    # ---------------------------------------------------
-    wide_count_table = build_site_param_count_table(
-    df_param_filtered,
-    checked_params
-)
-    return (
-        df_param_filtered.reset_index(drop=True),
-        exclusion_report,
-        wide_count_table
+        for site, n in counts.items():
+            if n < min_events:
+                # Record exclusion
+                exclusion_records.append({
+                    "Site": site,
+                    "Parameter": col,
+                    "Reason": f"<{min_events} events at site",
+                    "Event_Count": n
+                })
+
+                # Null out that parameter for that site
+                df_filtered.loc[
+                    df_filtered[site_col] == site,
+                    col
+                ] = np.nan
+
+    # ---------------------------------------------------------
+    # STEP 2 — Watershed rule (>=3 sites per parameter)
+    # ---------------------------------------------------------
+    if watershed_col and watershed_col in df_filtered.columns:
+
+        for col in category_cols:
+            if col not in df_filtered.columns:
+                continue
+
+            # Count distinct sites per watershed WITH valid values
+            valid = df_filtered[df_filtered[col].notna()]
+
+            watershed_site_counts = (
+                valid.groupby(watershed_col)[site_col]
+                .nunique()
+            )
+
+            failing_watersheds = watershed_site_counts[
+                watershed_site_counts < 3
+            ].index
+
+            if len(failing_watersheds) > 0:
+
+                for ws in failing_watersheds:
+
+                    sites_in_ws = df_filtered.loc[
+                        df_filtered[watershed_col] == ws,
+                        site_col
+                    ].unique()
+
+                    for site in sites_in_ws:
+                        count_at_site = df_filtered.loc[
+                            (df_filtered[watershed_col] == ws) &
+                            (df_filtered[site_col] == site) &
+                            (df_filtered[col].notna())
+                        ].shape[0]
+
+                        if count_at_site > 0:
+                            exclusion_records.append({
+                                "Site": site,
+                                "Parameter": col,
+                                "Reason": "<3 sites in watershed",
+                                "Event_Count": count_at_site
+                            })
+
+                    # Null parameter in that watershed
+                    df_filtered.loc[
+                        df_filtered[watershed_col] == ws,
+                        col
+                    ] = np.nan
+
+    # ---------------------------------------------------------
+    # STEP 3 — Build Exclusion Report
+    # ---------------------------------------------------------
+    exclusion_report = pd.DataFrame(exclusion_records)
+
+    # ---------------------------------------------------------
+    # STEP 4 — Build Wide Count Table (AFTER filtering)
+    # ---------------------------------------------------------
+    wide_counts = build_site_param_count_table(
+        df_filtered,
+        category_cols
     )
+
+    return df_filtered, exclusion_report, wide_counts
+
 
 # -----------------------------------------------------------------------------
 # 9. OUTLIER CLEANER (IQR)
