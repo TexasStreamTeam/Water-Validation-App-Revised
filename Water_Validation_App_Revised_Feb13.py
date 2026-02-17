@@ -597,106 +597,50 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     if not site_col:
         return df_original, pd.DataFrame(), pd.DataFrame()
 
-    # 🔥 Determine parameter columns directly from df
+    # Determine numeric parameter columns directly
     numeric_cols = df_original.select_dtypes(include=[np.number]).columns.tolist()
 
-    # Remove non-parameter numeric columns
     numeric_cols = [
         c for c in numeric_cols
         if not c.startswith("QC_")
         and not c.startswith("_")
     ]
 
-    # -------------------------------------------------
-    # STEP 1 — Count using ORIGINAL DATA
-    # -------------------------------------------------
-    for col in category_cols:
+    # Build count table
+    wide_counts = build_site_param_count_table(
+        df_original,
+        numeric_cols
+    )
+
+    # --- Your exclusion logic here ---
+    exclusion_records = []
+    df_filtered = df_original.copy()
+
+    for col in numeric_cols:
         if col not in df_original.columns:
             continue
 
-        counts = (
-            df_original.groupby(site_col)[col]
-            .apply(lambda x: x.notna().sum())
-        )
+        param_counts = wide_counts[col]
+        excluded_sites = param_counts[param_counts < min_events].index.tolist()
 
-        for site, n in counts.items():
-            if n < min_events:
-                exclusions.add((site, col))
+        if excluded_sites:
+            df_filtered.loc[df_filtered[site_col].isin(excluded_sites), col] = np.nan
+
+            for site in excluded_sites:
                 exclusion_records.append({
-                    site_col: site,
-                    "parameter": col,
-                    "n_valid": n,
-                    "reason": f"<{min_events} valid events at this site"
+                    "Watershed": df_original.loc[df_original[site_col] == site, watershed_col].iloc[0] if watershed_col else "",
+                    "Site": site,
+                    "Parameter": col,
+                    "n_events": int(param_counts.get(site, 0))
                 })
 
-    # -------------------------------------------------
-    # STEP 2 — Watershed rule (based on ORIGINAL data)
-    # -------------------------------------------------
-    if watershed_col and watershed_col in df_original.columns:
-
-        for col in numeric_cols:
-            if col not in df_original.columns:
-                continue
-
-            valid = df_original[df_original[col].notna()]
-
-            ws_site_counts = (
-                valid.groupby(watershed_col)[site_col]
-                .nunique()
-            )
-
-            failing_ws = ws_site_counts[ws_site_counts < 3].index
-
-            for ws in failing_ws:
-                sites_in_ws = df_original.loc[
-                    df_original[watershed_col] == ws,
-                    site_col
-                ].unique()
-
-                for s in sites_in_ws:
-                    n = df_original.loc[
-                        (df_original[watershed_col] == ws) &
-                        (df_original[site_col] == s),
-                        col
-                    ].notna().sum()
-
-                    if n > 0:
-                        exclusions.add((s, col))
-                        exclusion_records.append({
-                            site_col: s,
-                            "parameter": col,
-                            "n_valid": n,
-                            "reason": "<3 sites in watershed"
-                        })
-
-    # -------------------------------------------------
-    # STEP 3 — Apply exclusions ONCE
-    # -------------------------------------------------
-    df_filtered = df_original.copy()
-
-    for site, col in exclusions:
-        if col in df_filtered.columns:
-            df_filtered.loc[df_filtered[site_col] == site, col] = np.nan
-
-    # -------------------------------------------------
-    # STEP 4 — Drop rows where ALL parameters are NaN
-    # -------------------------------------------------
+    # Drop rows with no parameters left
     existing_cols = numeric_cols
-    if existing_cols:
-        df_filtered = df_filtered.dropna(
-            subset=existing_cols,
-            how="all"
-        )
+    df_filtered = df_filtered.dropna(subset=existing_cols, how="all")
 
-    df_filtered = df_filtered.reset_index(drop=True)
+    exclusion_report = pd.DataFrame(exclusion_records)
 
-    exclusion_report = pd.DataFrame(exclusion_records).drop_duplicates()
-
-wide_counts = build_site_param_count_table(
-    df_filtered,
-    numeric_cols
-  )
-return df_filtered, exclusion_report, wide_counts
+    return df_filtered, exclusion_report, wide_counts
 
 
 # -----------------------------------------------------------------------------
