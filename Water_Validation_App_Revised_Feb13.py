@@ -699,7 +699,7 @@ def iqr_outlier_cleaner(df, cols, k=1.5):
 # -----------------------------------------------------------------------------
 # 10. Helper: compute all cleaned dfs
 def get_clean_dfs(raw_df):
-    """Run full cleaning pipeline, including automatic 10-event rule."""
+    """Run full cleaning pipeline WITHOUT DSR filtering."""
 
     cats = categorize_columns(raw_df)
 
@@ -711,22 +711,19 @@ def get_clean_dfs(raw_df):
 
     all_param_cols = cats["core"] + cats["ecoli"] + cats["advanced"]
 
-    # 🔹 APPLY 10-EVENT PARAMETER FILTER AUTOMATICALLY
-    dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
-        rip_df,
-        all_param_cols,
-        min_events=10
-    )
+    return {
+        "categories": cats,
+        "general_df": gen_df,
+        "clean_df": rip_df,   # <-- NOT filtered
+        "all_param_cols": all_param_cols,
+    }
 
     return {
         "categories": cats,
         "general_df": gen_df,
         "clean_df": dsr_ready_df,   # <-- NOW FILTERED
         "all_param_cols": all_param_cols,
-        "exclusion_report": exclusion_report,
-        "wide_counts": wide_counts,
-    }
-
+      
 
 # -----------------------------------------------------------------------------
 # 11. UI – TABS
@@ -772,8 +769,7 @@ if has_data:
     general_df = clean_context["general_df"]
     clean_df = clean_context["clean_df"]
     all_param_cols = clean_context["all_param_cols"]
-    exclusion_report = clean_context["exclusion_report"]
-    wide_counts = clean_context["wide_counts"]
+   
 else:
     categories = {}
     general_df = pd.DataFrame()
