@@ -646,13 +646,14 @@ for col in numeric_cols:
                     "Site": site,
                     "Parameter": col,
                     "n_events": int(param_counts.get(site, 0))
-                })
-                existing_cols = numeric_cols
-                df_filtered = df_filtered.dropna(subset=existing_cols, how="all")
-                exclusion_report = pd.DataFrame(exclusion_records)
-                return df_filtered, exclusion_report, wide_counts
+                }) 
+                df_filtered.loc[df_filtered[site_col] ==site, col] = np.nan
 
+existing_cols = numeric_cols
+df_filtered = df_filtered.dropna(subset=existing_cols, how="all")
+exclusion_report = pd.DataFrame(exclusion_records)
 
+return df_filtered, exclusion_report, wide_counts
 # -----------------------------------------------------------------------------
 # 9. OUTLIER CLEANER (IQR)
 # -----------------------------------------------------------------------------
