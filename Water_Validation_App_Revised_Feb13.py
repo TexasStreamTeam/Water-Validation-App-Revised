@@ -586,69 +586,62 @@ def build_site_param_count_table(df, category_cols):
     ).reset_index()
 
     return wide
+    def filter_dsr_ready(df, category_cols=None, min_events=10):
 
-
-def filter_dsr_ready(df, category_cols=None, min_events=10):
-
-    df_original = df.copy()
-    site_col = find_col(df_original, COLUMN_MAP["site"])
-    watershed_col = find_col(df_original, COLUMN_MAP["watershed"])
+    df = df.copy()
+    site_col = find_col(df, COLUMN_MAP["site"])
+    watershed_col = find_col(df, COLUMN_MAP["watershed"])
 
     if not site_col:
-        return df_original, pd.DataFrame(), pd.DataFrame()
+        return df, pd.DataFrame(), pd.DataFrame()
 
-    # Normalize site IDs
-    df_original["_site_norm"] = df_original[site_col].astype(str).str.strip()
+    # Only use parameter columns passed from UI
+    param_cols = [c for c in category_cols if c in df.columns]
 
-    # Use only numeric parameter columns passed in
-    numeric_cols = [c for c in category_cols if c in df_original.columns]
-
-    # Build count table
-    wide_counts = build_site_param_count_table(df_original, numeric_cols)
+    # Build counts
+    wide_counts = build_site_param_count_table(df, param_cols)
 
     exclusion_records = []
-    df_filtered = df_original.copy()
+    df_filtered = df.copy()
 
-    for col in numeric_cols:
+    for col in param_cols:
 
         if col not in wide_counts.columns:
             continue
 
         for _, row in wide_counts.iterrows():
 
-            site_value = str(row[site_col]).strip()
+            site_value = row[site_col]
             count_value = row[col]
 
             if count_value < min_events:
 
+                # Remove ONLY that parameter at that site
                 df_filtered.loc[
-                    df_filtered["_site_norm"] == site_value,
+                    df_filtered[site_col] == site_value,
                     col
                 ] = np.nan
 
                 exclusion_records.append({
                     "Watershed": (
-                        df_original.loc[
-                            df_original["_site_norm"] == site_value,
-                            watershed_col
-                        ].iloc[0] if watershed_col else ""
+                        df.loc[df[site_col] == site_value, watershed_col].iloc[0]
+                        if watershed_col else ""
                     ),
                     "Site": site_value,
                     "Parameter": col,
                     "n_events": int(count_value)
                 })
 
-    # Drop rows where ALL selected params are NaN
-    existing_cols = [c for c in numeric_cols if c in df_filtered.columns]
-    if existing_cols:
-        df_filtered = df_filtered.dropna(subset=existing_cols, how="all")
-
-    # Clean helper column
-    df_filtered = df_filtered.drop(columns=["_site_norm"], errors="ignore")
+    # Drop rows where ALL parameters are NaN
+    if param_cols:
+        df_filtered = df_filtered.dropna(subset=param_cols, how="all")
 
     exclusion_report = pd.DataFrame(exclusion_records)
 
     return df_filtered.reset_index(drop=True), exclusion_report, wide_counts
+
+
+
 
 
 # -----------------------------------------------------------------------------
