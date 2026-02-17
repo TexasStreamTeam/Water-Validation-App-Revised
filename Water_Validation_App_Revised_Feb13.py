@@ -948,7 +948,7 @@ if apply_dsr_filter:
             st.markdown("### Site × Parameter Count Table (wide)")
             st.dataframe(wide_counts)
 
-        else:
+else:
             dsr_ready_df = clean_df.copy()
             exclusion_report = pd.DataFrame()
             wide_counts = build_site_param_count_table(clean_df, all_param_cols)
@@ -982,7 +982,7 @@ if apply_dsr_filter:
             key="download_dsr"
         )
 
-        if not exclusion_report.empty:
+if not exclusion_report.empty:
             buf_excl = io.BytesIO()
             exclusion_report.to_csv(buf_excl, index=False)
             st.download_button(
@@ -993,7 +993,7 @@ if apply_dsr_filter:
                 key="download_exclusion"
             )
 
-        if wide_counts is not None and not wide_counts.empty:
+if wide_counts is not None and not wide_counts.empty:
             buf_wide = io.BytesIO()
             wide_counts.to_csv(buf_wide, index=False)
             st.download_button(
