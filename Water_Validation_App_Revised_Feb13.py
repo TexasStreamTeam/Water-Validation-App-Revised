@@ -729,12 +729,6 @@ def get_clean_dfs(raw_df):
         "all_param_cols": all_param_cols,
     }
 
-    return {
-        "categories": cats,
-        "general_df": gen_df,
-        "clean_df": dsr_ready_df,   # <-- NOW FILTERED
-        "all_param_cols": all_param_cols,
-    }
       
 
 # -----------------------------------------------------------------------------
