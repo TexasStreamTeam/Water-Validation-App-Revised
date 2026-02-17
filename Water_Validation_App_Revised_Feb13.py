@@ -560,8 +560,7 @@ def apply_param_level_exclusions(df, exclusion_report, category_cols):
     existing_param_cols = [c for c in category_cols if c in df.columns]
     if existing_param_cols:
         df = df.dropna(subset=existing_param_cols, how="all")
-
-return df.reset_index(drop=True)
+        return df.reset_index(drop=True)
 
 
 def build_site_param_count_table(df, category_cols):
