@@ -597,48 +597,59 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     if not site_col:
         return df_original, pd.DataFrame(), pd.DataFrame()
 
-    #  Normalize site IDs to string
+    # Normalize site IDs
     df_original["_site_norm"] = df_original[site_col].astype(str).str.strip()
 
-    # Determine numeric parameter columns
-    numeric_cols = df_original.select_dtypes(include=[np.number]).columns.tolist()
-    numeric_cols = [
-        c for c in numeric_cols
-        if not c.startswith("QC_")
-        and not c.startswith("_")
-    ]
+    # Use only numeric parameter columns passed in
+    numeric_cols = [c for c in category_cols if c in df_original.columns]
 
-    # Build counts using normalized site
+    # Build count table
     wide_counts = build_site_param_count_table(df_original, numeric_cols)
 
     exclusion_records = []
     df_filtered = df_original.copy()
 
-for col in numeric_cols:
+    for col in numeric_cols:
 
-    if col not in wide_counts.columns:
-        continue
+        if col not in wide_counts.columns:
+            continue
 
-    param_counts = wide_counts[col]
-    excluded_sites = param_counts[param_counts < min_events].index.tolist()
+        for _, row in wide_counts.iterrows():
 
-    for site in excluded_sites:
-        exclusion_records.append({
-            "Watershed": df_original.loc[df_original[site_col] == site, watershed_col].iloc[0] if watershed_col else "",
-            "Site": site,
-            "Parameter": col,
-            "n_events": int(param_counts.get(site, 0))
-        })
+            site_value = str(row[site_col]).strip()
+            count_value = row[col]
 
-        df_filtered.loc[df_filtered[site_col] == site, col] = np.nan
+            if count_value < min_events:
 
+                df_filtered.loc[
+                    df_filtered["_site_norm"] == site_value,
+                    col
+                ] = np.nan
 
-# 🔹 OUTSIDE ALL LOOPS
-existing_cols = numeric_cols
-df_filtered = df_filtered.dropna(subset=existing_cols, how="all")
-exclusion_report = pd.DataFrame(exclusion_records)
+                exclusion_records.append({
+                    "Watershed": (
+                        df_original.loc[
+                            df_original["_site_norm"] == site_value,
+                            watershed_col
+                        ].iloc[0] if watershed_col else ""
+                    ),
+                    "Site": site_value,
+                    "Parameter": col,
+                    "n_events": int(count_value)
+                })
 
-return df_filtered, exclusion_report, wide_counts
+    # Drop rows where ALL selected params are NaN
+    existing_cols = [c for c in numeric_cols if c in df_filtered.columns]
+    if existing_cols:
+        df_filtered = df_filtered.dropna(subset=existing_cols, how="all")
+
+    # Clean helper column
+    df_filtered = df_filtered.drop(columns=["_site_norm"], errors="ignore")
+
+    exclusion_report = pd.DataFrame(exclusion_records)
+
+    return df_filtered.reset_index(drop=True), exclusion_report, wide_counts
+
 
 # -----------------------------------------------------------------------------
 # 9. OUTLIER CLEANER (IQR)
