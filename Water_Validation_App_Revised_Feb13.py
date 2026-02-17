@@ -914,106 +914,39 @@ with tabs[6]:
             st.warning("No RIPARIAN columns found.")
 
 # --- Tab 8: Run All & Exports -----------------------------------------------
-with tabs[7]:
-    st.subheader("Run All & Exports")
-
-    if not has_data:
-        st.warning("Please upload a CSV file first.")
-    else:
-        st.markdown("### DSR Quantity Summary (raw cleaned)")
-        summary = dsr_quantity_summary(clean_df, all_param_cols)
-
-        st.markdown("**Number of sites per watershed**")
-        st.dataframe(summary["watershed_site_counts"])
-
-        st.markdown("**Number of valid events per parameter per site**")
-        st.dataframe(summary["site_param_counts"])
-
-    st.success(
-    f"Number of rows after 10-event parameter filtering: {clean_df.shape[0]}"
-)
-
-st.markdown("### Exclusion Report")
-st.dataframe(exclusion_report)
-
-st.markdown("### Site × Parameter Count Table (wide)")
-st.dataframe(wide_counts)
-
+# Default values (so variables always exist)
 dsr_ready_df = clean_df.copy()
+exclusion_report = pd.DataFrame()
+wide_counts = build_site_param_count_table(clean_df, all_param_cols)
+
 apply_dsr_filter = st.checkbox(
     "Apply DSR filter (≥3 sites per watershed AND ≥10 events per parameter per site)",
     value=False
 )
 
 if apply_dsr_filter:
-            dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(clean_df, all_param_cols, min_events=10)
-            st.success(
-                f"Number of DSR-ready rows: {dsr_ready_df.shape[0]} (out of {clean_df.shape[0]} cleaned rows)."
-            )
+    dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
+        clean_df,
+        all_param_cols,
+        min_events=10
+    )
 
-            st.markdown("### Exclusion Report (why site/parameter combos were removed)")
-            st.dataframe(exclusion_report)
+    st.success(
+        f"Number of DSR-ready rows: {dsr_ready_df.shape[0]} "
+        f"(out of {clean_df.shape[0]} cleaned rows)."
+    )
 
-            st.markdown("### Site × Parameter Count Table (wide)")
-            st.dataframe(wide_counts)
+    st.markdown("### Exclusion Report (why site/parameter combos were removed)")
+    st.dataframe(exclusion_report)
+
+    st.markdown("### Site × Parameter Count Table (wide)")
+    st.dataframe(wide_counts)
 
 else:
-            dsr_ready_df = clean_df.copy()
-            exclusion_report = pd.DataFrame()
-            wide_counts = build_site_param_count_table(clean_df, all_param_cols)
-            st.info("DSR filter is OFF. All cleaned data are included.")
+    st.info("DSR filter is OFF. All cleaned data are included.")
 
-            st.markdown("### Site × Parameter Count Table (wide)")
-            st.dataframe(wide_counts)
-
-st.markdown("### Preview of fully cleaned data")
-st.dataframe(clean_df.head(50))
-
-st.markdown("### Download outputs")
-buf_clean = io.BytesIO()
-clean_df.to_csv(buf_clean, index=False)
-st.download_button(
-            label="Download Cleaned CSV",
-            data=buf_clean.getvalue(),
-            file_name="cleaned_data.csv",
-            mime="text/csv",
-            key="download_clean"
-        )
-
-buf_dsr = io.BytesIO()
-dsr_ready_df.to_csv(buf_dsr, index=False)
-
-st.download_button(
-    label="Download DSR-ready CSV",
-    data=buf_dsr.getvalue(),
-    file_name="cleaned_data_DSR_ready.csv",
-    mime="text/csv",
-    key="download_dsr"
-)
-
-if not exclusion_report.empty:
-    buf_excl = io.BytesIO()
-    exclusion_report.to_csv(buf_excl, index=False)
-
-    st.download_button(
-        label="Download Exclusion Report CSV",
-        data=buf_excl.getvalue(),
-        file_name="DSR_exclusion_report.csv",
-        mime="text/csv",
-        key="download_exclusion"
-    )
-
-if wide_counts is not None and not wide_counts.empty:
-    buf_wide = io.BytesIO()
-    wide_counts.to_csv(buf_wide, index=False)
-
-    st.download_button(
-        label="Download Site-Parameter Count Table CSV",
-        data=buf_wide.getvalue(),
-        file_name="site_parameter_event_counts.csv",
-        mime="text/csv",
-        key="download_site_param_counts"
-    )
+    st.markdown("### Site × Parameter Count Table (wide)")
+    st.dataframe(wide_counts)
 
 
 # --- Tab 9: Outlier Cleaner (IQR) --------------------------------------------
