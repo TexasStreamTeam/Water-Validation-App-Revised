@@ -914,97 +914,102 @@ with tabs[6]:
             st.warning("No RIPARIAN columns found.")
 
 # --- Tab 8: Run All & Exports -----------------------------------------------
-# Default values (so variables always exist)
-dsr_ready_df = clean_df.copy()
-exclusion_report = pd.DataFrame()
-wide_counts = build_site_param_count_table(clean_df, all_param_cols)
-
-apply_dsr_filter = st.checkbox(
-    "Apply DSR filter (≥3 sites per watershed AND ≥10 events per parameter per site)",
-    value=False
-)
-
-if apply_dsr_filter:
-    dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
-        clean_df,
-        all_param_cols,
-        min_events=10
-    )
-
-    st.success(
-        f"Number of DSR-ready rows: {dsr_ready_df.shape[0]} "
-        f"(out of {clean_df.shape[0]} cleaned rows)."
-    )
-
-    st.markdown("### Exclusion Report (why site/parameter combos were removed)")
-    st.dataframe(exclusion_report)
-
-    st.markdown("### Site × Parameter Count Table (wide)")
-    st.dataframe(wide_counts)
-
-else:
-    st.info("DSR filter is OFF. All cleaned data are included.")
-
-    st.markdown("### Site × Parameter Count Table (wide)")
-    st.dataframe(wide_counts)
-
-
-# --- Tab 9: Outlier Cleaner (IQR) --------------------------------------------
-
-with tabs[8]:
-    st.subheader("Outlier Cleaner (IQR)")
+# --- Tab 8: Run All & Exports -----------------------------------------------
+with tabs[7]:
+    st.subheader("Run All & Exports")
 
     if not has_data:
         st.warning("Please upload a CSV file first.")
-
     else:
-        numeric_cols = clean_df.select_dtypes(include=[np.number]).columns.tolist()
+        # --------------------------------------------------
+        # Default values (always exist)
+        # --------------------------------------------------
+        dsr_ready_df = clean_df.copy()
+        exclusion_report = pd.DataFrame()
+        wide_counts = build_site_param_count_table(clean_df, all_param_cols)
 
-        if not numeric_cols:
-            st.info("No numeric columns found for IQR-based outlier cleaning.")
+        apply_dsr_filter = st.checkbox(
+            "Apply DSR filter (≥3 sites per watershed AND ≥10 events per parameter per site)",
+            value=False
+        )
+
+        if apply_dsr_filter:
+            dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
+                clean_df,
+                all_param_cols,
+                min_events=10
+            )
+
+            st.success(
+                f"Number of DSR-ready rows: {dsr_ready_df.shape[0]} "
+                f"(out of {clean_df.shape[0]} cleaned rows)."
+            )
+
+            st.markdown("### Exclusion Report")
+            st.dataframe(exclusion_report)
 
         else:
-            selected_cols = st.multiselect(
-                "Select numeric columns for IQR outlier cleaning:",
-                numeric_cols,
-                default=[]
+            st.info("DSR filter is OFF. All cleaned data are included.")
+
+        st.markdown("### Site × Parameter Count Table (wide)")
+        st.dataframe(wide_counts)
+
+        # --------------------------------------------------
+        # DOWNLOADS
+        # --------------------------------------------------
+
+        st.markdown("### Download Files")
+
+        # Cleaned dataset (always available)
+        buf_clean = io.BytesIO()
+        clean_df.to_csv(buf_clean, index=False)
+
+        st.download_button(
+            label="Download Cleaned Dataset (No DSR Filter)",
+            data=buf_clean.getvalue(),
+            file_name="cleaned_data.csv",
+            mime="text/csv",
+            key="download_clean"
+        )
+
+        # DSR-ready dataset
+        buf_dsr = io.BytesIO()
+        dsr_ready_df.to_csv(buf_dsr, index=False)
+
+        st.download_button(
+            label="Download DSR-Ready Dataset",
+            data=buf_dsr.getvalue(),
+            file_name="cleaned_data_DSR_ready.csv",
+            mime="text/csv",
+            key="download_dsr"
+        )
+
+        # Exclusion report (only if filter applied)
+        if apply_dsr_filter and not exclusion_report.empty:
+            buf_excl = io.BytesIO()
+            exclusion_report.to_csv(buf_excl, index=False)
+
+            st.download_button(
+                label="Download Exclusion Report",
+                data=buf_excl.getvalue(),
+                file_name="DSR_exclusion_report.csv",
+                mime="text/csv",
+                key="download_exclusion"
             )
 
-            k = st.slider(
-                "IQR multiplier (typical value is 1.5):",
-                min_value=0.5,
-                max_value=3.0,
-                value=1.5,
-                step=0.1
+        # Wide count table
+        if not wide_counts.empty:
+            buf_wide = io.BytesIO()
+            wide_counts.to_csv(buf_wide, index=False)
+
+            st.download_button(
+                label="Download Site-Parameter Count Table",
+                data=buf_wide.getvalue(),
+                file_name="site_parameter_event_counts.csv",
+                mime="text/csv",
+                key="download_site_param_counts"
             )
 
-            if selected_cols:
-                filtered_df, mask_removed = iqr_outlier_cleaner(
-                    clean_df,
-                    selected_cols,
-                    k=k
-                )
-
-                st.write(
-                    f"Number of rows removed as outliers: "
-                    f"{mask_removed.sum()} (out of {clean_df.shape[0]} cleaned rows)."
-                )
-
-                st.dataframe(filtered_df.head(50))
-
-                buf_iqr = io.BytesIO()
-                filtered_df.to_csv(buf_iqr, index=False)
-
-                st.download_button(
-                    label="Download IQR-filtered CSV",
-                    data=buf_iqr.getvalue(),
-                    file_name="cleaned_data_IQR_filtered.csv",
-                    mime="text/csv",
-                    key="download_iqr"
-                )
-
-            else:
-                st.info("Select at least one numeric column to perform outlier cleaning.")
 
 # --- Tab 10: Cleaning Guide --------------------------------------------------
 with tabs[9]:
