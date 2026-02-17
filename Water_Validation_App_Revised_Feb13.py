@@ -585,7 +585,9 @@ def build_site_param_count_table(df, category_cols):
         fill_value=0
     ).reset_index()
 
+
     return wide
+
 def filter_dsr_ready(df, category_cols=None, min_events=10):
 
     df = df.copy()
@@ -595,14 +597,14 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     if not site_col:
         return df, pd.DataFrame(), pd.DataFrame()
 
-    # Normalize site IDs to STRING for matching
+    # 🔑 NORMALIZE SITE IDS (THIS IS THE KEY FIX)
     df["_site_norm"] = df[site_col].astype(str).str.strip()
 
     param_cols = [c for c in category_cols if c in df.columns]
 
     wide_counts = build_site_param_count_table(df, param_cols)
 
-    # Normalize site IDs in wide_counts too
+    # Normalize site IDs in count table too
     wide_counts["_site_norm"] = wide_counts[site_col].astype(str).str.strip()
 
     exclusion_records = []
@@ -620,7 +622,7 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
 
             if count_value < min_events:
 
-                # Remove that parameter at that site
+                # Remove parameter ONLY for this site
                 df_filtered.loc[
                     df_filtered["_site_norm"] == site_value,
                     col
@@ -647,8 +649,6 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     exclusion_report = pd.DataFrame(exclusion_records)
 
     return df_filtered.reset_index(drop=True), exclusion_report, wide_counts
-
-
 
 
 # -----------------------------------------------------------------------------
