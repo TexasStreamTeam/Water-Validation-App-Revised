@@ -586,7 +586,8 @@ def build_site_param_count_table(df, category_cols):
     ).reset_index()
 
     return wide
-   def filter_dsr_ready(df, category_cols=None, min_events=10):
+
+def filter_dsr_ready(df, category_cols=None, min_events=10):
 
     df = df.copy()
     site_col = find_col(df, COLUMN_MAP["site"])
@@ -639,7 +640,6 @@ def build_site_param_count_table(df, category_cols):
     exclusion_report = pd.DataFrame(exclusion_records)
 
     return df_filtered.reset_index(drop=True), exclusion_report, wide_counts
-
 
 
 
