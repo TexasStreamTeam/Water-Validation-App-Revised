@@ -922,7 +922,7 @@ with tabs[7]:
         st.markdown("**Number of valid events per parameter per site**")
         st.dataframe(summary["site_param_counts"])
 
-      st.success(
+    st.success(
     f"Number of rows after 10-event parameter filtering: {clean_df.shape[0]}"
 )
 
