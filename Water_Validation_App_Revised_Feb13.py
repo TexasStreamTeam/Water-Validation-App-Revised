@@ -630,6 +630,9 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     df["_site_norm"] = df[site_col].astype(str).str.strip()
 
     for col in param_cols:
+        if col.lower().startswith("conduct"):
+            st.write("DEBUG - Conductivity counts per site:")
+            st.dataframe(counts.reset_index())
 
         counts = (
             df.groupby("_site_norm")[col]
