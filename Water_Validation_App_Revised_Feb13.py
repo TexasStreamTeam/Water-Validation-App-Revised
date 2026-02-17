@@ -698,7 +698,7 @@ def iqr_outlier_cleaner(df, cols, k=1.5):
 
 # -----------------------------------------------------------------------------
 # 10. Helper: compute all cleaned dfs
-# ---------------------------------------------def get_clean_dfs(raw_df):
+def get_clean_dfs(raw_df):
     """Run full cleaning pipeline, including automatic 10-event rule."""
 
     cats = categorize_columns(raw_df)
