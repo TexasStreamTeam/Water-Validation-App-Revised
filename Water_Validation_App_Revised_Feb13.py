@@ -597,34 +597,48 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     if not site_col:
         return df_original, pd.DataFrame(), pd.DataFrame()
 
-    # Determine numeric parameter columns directly
-    numeric_cols = df_original.select_dtypes(include=[np.number]).columns.tolist()
+    #  Normalize site IDs to string
+    df_original["_site_norm"] = df_original[site_col].astype(str).str.strip()
 
+    # Determine numeric parameter columns
+    numeric_cols = df_original.select_dtypes(include=[np.number]).columns.tolist()
     numeric_cols = [
         c for c in numeric_cols
         if not c.startswith("QC_")
         and not c.startswith("_")
     ]
 
-    # Build count table
-    wide_counts = build_site_param_count_table(
-        df_original,
-        numeric_cols
-    )
+    # Build counts using normalized site
+    wide_counts = build_site_param_count_table(df_original, numeric_cols)
 
-    # --- Your exclusion logic here ---
     exclusion_records = []
     df_filtered = df_original.copy()
 
-    for col in numeric_cols:
-        if col not in df_original.columns:
-            continue
+   for col in numeric_cols:
 
-        param_counts = wide_counts[col]
-        excluded_sites = param_counts[param_counts < min_events].index.tolist()
+    if col not in wide_counts.columns:
+        continue
 
-        if excluded_sites:
-            df_filtered.loc[df_filtered[site_col].isin(excluded_sites), col] = np.nan
+    for _, row in wide_counts.iterrows():
+        site_value = str(row[site_col]).strip()
+        count_value = row[col]
+
+        if count_value < min_events:
+            df_filtered.loc[
+                df_filtered["_site_norm"] == site_value,
+                col
+            ] = np.nan
+
+            exclusion_records.append({
+                "Watershed": (
+                    df_original.loc[df_original["_site_norm"] == site_value, watershed_col].iloc[0]
+                    if watershed_col else ""
+                ),
+                "Site": site_value,
+                "Parameter": col,
+                "n_events": int(count_value)
+            })
+
 
             for site in excluded_sites:
                 exclusion_records.append({
