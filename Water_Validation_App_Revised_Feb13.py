@@ -625,6 +625,8 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     # RULE 2: ≥10 events per PARAMETER per SITE
     # --------------------------------------------------
     param_cols = [c for c in category_cols if c in df.columns]
+    st.write("DEBUG - Parameters being checked:")
+    st.write(param_cols)
 
     # Normalize site column once (INSIDE function)
     df["_site_norm"] = df[site_col].astype(str).str.strip()
