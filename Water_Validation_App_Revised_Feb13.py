@@ -958,13 +958,12 @@ else:
             st.dataframe(wide_counts)
 
 st.markdown("### Preview of fully cleaned data")
-        st.dataframe(clean_df.head(50))
+st.dataframe(clean_df.head(50))
 
-        st.markdown("### Download outputs")
-
-        buf_clean = io.BytesIO()
-        clean_df.to_csv(buf_clean, index=False)
-        st.download_button(
+st.markdown("### Download outputs")
+buf_clean = io.BytesIO()
+clean_df.to_csv(buf_clean, index=False)
+st.download_button(
             label="Download Cleaned CSV",
             data=buf_clean.getvalue(),
             file_name="cleaned_data.csv",
