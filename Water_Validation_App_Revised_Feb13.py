@@ -619,41 +619,27 @@ for col in numeric_cols:
     if col not in wide_counts.columns:
         continue
 
-    for _, row in wide_counts.iterrows():
-        site_value = str(row[site_col]).strip()
-        count_value = row[col]
+    param_counts = wide_counts[col]
+    excluded_sites = param_counts[param_counts < min_events].index.tolist()
 
-        if count_value < min_events:
-            df_filtered.loc[
-                df_filtered["_site_norm"] == site_value,
-                col
-            ] = np.nan
+    for site in excluded_sites:
+        exclusion_records.append({
+            "Watershed": df_original.loc[df_original[site_col] == site, watershed_col].iloc[0] if watershed_col else "",
+            "Site": site,
+            "Parameter": col,
+            "n_events": int(param_counts.get(site, 0))
+        })
 
-            exclusion_records.append({
-                "Watershed": (
-                    df_original.loc[df_original["_site_norm"] == site_value, watershed_col].iloc[0]
-                    if watershed_col else ""
-                ),
-                "Site": site_value,
-                "Parameter": col,
-                "n_events": int(count_value)
-            })
+        df_filtered.loc[df_filtered[site_col] == site, col] = np.nan
 
 
-            for site in excluded_sites:
-                exclusion_records.append({
-                    "Watershed": df_original.loc[df_original[site_col] == site, watershed_col].iloc[0] if watershed_col else "",
-                    "Site": site,
-                    "Parameter": col,
-                    "n_events": int(param_counts.get(site, 0))
-                }) 
-                df_filtered.loc[df_filtered[site_col] ==site, col] = np.nan
-
+# 🔹 OUTSIDE ALL LOOPS
 existing_cols = numeric_cols
 df_filtered = df_filtered.dropna(subset=existing_cols, how="all")
 exclusion_report = pd.DataFrame(exclusion_records)
 
 return df_filtered, exclusion_report, wide_counts
+
 # -----------------------------------------------------------------------------
 # 9. OUTLIER CLEANER (IQR)
 # -----------------------------------------------------------------------------
