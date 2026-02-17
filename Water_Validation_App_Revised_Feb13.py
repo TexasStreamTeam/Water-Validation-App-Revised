@@ -696,7 +696,6 @@ wide_counts = build_site_param_count_table(
     df_filtered,
     numeric_cols
   )
-
 return df_filtered, exclusion_report, wide_counts
 
 
