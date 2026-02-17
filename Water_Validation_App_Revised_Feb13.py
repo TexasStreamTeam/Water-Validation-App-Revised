@@ -593,62 +593,72 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
     df = df.copy()
     site_col = find_col(df, COLUMN_MAP["site"])
     watershed_col = find_col(df, COLUMN_MAP["watershed"])
+    ecoli_col = find_col(df, COLUMN_MAP["ecoli_avg"])
 
     if not site_col:
         return df, pd.DataFrame(), pd.DataFrame()
 
-    # 🔑 NORMALIZE SITE IDS (THIS IS THE KEY FIX)
-    df["_site_norm"] = df[site_col].astype(str).str.strip()
-
-    param_cols = [c for c in category_cols if c in df.columns]
-
-    wide_counts = build_site_param_count_table(df, param_cols)
-
-    # Normalize site IDs in count table too
-    wide_counts["_site_norm"] = wide_counts[site_col].astype(str).str.strip()
-
     exclusion_records = []
-    df_filtered = df.copy()
 
-    for col in param_cols:
+    # --------------------------------------------------
+    # RULE 1: ≥3 sites per watershed
+    # --------------------------------------------------
+    if watershed_col:
+        site_counts = (
+            df.groupby(watershed_col)[site_col]
+            .nunique()
+        )
 
-        if col not in wide_counts.columns:
-            continue
+        bad_watersheds = site_counts[site_counts < 3].index
 
-        for _, row in wide_counts.iterrows():
+        if len(bad_watersheds) > 0:
+            df = df[~df[watershed_col].isin(bad_watersheds)]
 
-            site_value = row["_site_norm"]
-            count_value = row[col]
-
-            if count_value < min_events:
-
-                # Remove parameter ONLY for this site
-                df_filtered.loc[
-                    df_filtered["_site_norm"] == site_value,
-                    col
-                ] = np.nan
-
+            for ws in bad_watersheds:
                 exclusion_records.append({
-                    "Watershed": (
-                        df.loc[df["_site_norm"] == site_value, watershed_col].iloc[0]
-                        if watershed_col else ""
-                    ),
-                    "Site": site_value,
-                    "Parameter": col,
-                    "n_events": int(count_value)
+                    "Watershed": ws,
+                    "Site": "",
+                    "Parameter": "",
+                    "n_events": "",
                 })
 
-    # Drop rows where ALL parameters are NaN
-    if param_cols:
-        df_filtered = df_filtered.dropna(subset=param_cols, how="all")
+    # --------------------------------------------------
+    # RULE 2: ≥10 events — E. COLI ONLY
+    # --------------------------------------------------
+    if ecoli_col and site_col:
 
-    # Clean helper column
-    df_filtered = df_filtered.drop(columns=["_site_norm"], errors="ignore")
-    wide_counts = wide_counts.drop(columns=["_site_norm"], errors="ignore")
+        ecoli_counts = (
+            df.groupby(site_col)[ecoli_col]
+            .apply(lambda x: x.notna().sum())
+        )
+
+        bad_sites = ecoli_counts[ecoli_counts < min_events].index
+
+        for site in bad_sites:
+            df.loc[df[site_col] == site, ecoli_col] = np.nan
+
+            exclusion_records.append({
+                "Watershed": (
+                    df.loc[df[site_col] == site, watershed_col].iloc[0]
+                    if watershed_col else ""
+                ),
+                "Site": site,
+                "Parameter": ecoli_col,
+                "n_events": int(ecoli_counts[site])
+            })
+
+    # --------------------------------------------------
+    # Drop rows where all parameters are NaN
+    # --------------------------------------------------
+    param_cols = [c for c in category_cols if c in df.columns]
+    if param_cols:
+        df = df.dropna(subset=param_cols, how="all")
 
     exclusion_report = pd.DataFrame(exclusion_records)
+    wide_counts = build_site_param_count_table(df, category_cols)
 
-    return df_filtered.reset_index(drop=True), exclusion_report, wide_counts
+    return df.reset_index(drop=True), exclusion_report, wide_counts
+
 
 
 # -----------------------------------------------------------------------------
