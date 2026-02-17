@@ -944,7 +944,7 @@ st.dataframe(wide_counts)
 
 dsr_ready_df = clean_df.copy()
 ("Apply DSR filter (≥3 sites per watershed AND ≥10 events per parameter per site)",
-value=="False")
+value=='False')
 
 if apply_dsr_filter:
             dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(clean_df, all_param_cols, min_events=10)
