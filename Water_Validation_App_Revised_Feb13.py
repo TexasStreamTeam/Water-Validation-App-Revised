@@ -647,13 +647,10 @@ for col in numeric_cols:
                     "Parameter": col,
                     "n_events": int(param_counts.get(site, 0))
                 })
-
-    # Drop rows with no parameters left
-    existing_cols = numeric_cols
-    df_filtered = df_filtered.dropna(subset=existing_cols, how="all")
-
-    exclusion_report = pd.DataFrame(exclusion_records)
-    return df_filtered, exclusion_report, wide_counts
+                existing_cols = numeric_cols
+                df_filtered = df_filtered.dropna(subset=existing_cols, how="all")
+                exclusion_report = pd.DataFrame(exclusion_records)
+                return df_filtered, exclusion_report, wide_counts
 
 
 # -----------------------------------------------------------------------------
