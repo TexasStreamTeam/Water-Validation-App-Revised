@@ -588,7 +588,7 @@ def build_site_param_count_table(df, category_cols):
     return wide
 
 
-def filter_dsr_ready(df, category_cols, min_events=10):
+def filter_dsr_ready(df, category_cols=None, min_events=10):
 
     df_original = df.copy()
     site_col = find_col(df_original, COLUMN_MAP["site"])
@@ -597,8 +597,15 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     if not site_col:
         return df_original, pd.DataFrame(), pd.DataFrame()
 
-    exclusion_records = []
-    exclusions = set()  # (site, parameter)
+    # 🔥 Determine parameter columns directly from df
+    numeric_cols = df_original.select_dtypes(include=[np.number]).columns.tolist()
+
+    # Remove non-parameter numeric columns
+    numeric_cols = [
+        c for c in numeric_cols
+        if not c.startswith("QC_")
+        and not c.startswith("_")
+    ]
 
     # -------------------------------------------------
     # STEP 1 — Count using ORIGINAL DATA
@@ -627,7 +634,7 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     # -------------------------------------------------
     if watershed_col and watershed_col in df_original.columns:
 
-        for col in category_cols:
+        for col in numeric_cols:
             if col not in df_original.columns:
                 continue
 
@@ -674,7 +681,7 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     # -------------------------------------------------
     # STEP 4 — Drop rows where ALL parameters are NaN
     # -------------------------------------------------
-    existing_cols = [c for c in category_cols if c in df_filtered.columns]
+    existing_cols = numeric_cols
     if existing_cols:
         df_filtered = df_filtered.dropna(
             subset=existing_cols,
@@ -685,10 +692,10 @@ def filter_dsr_ready(df, category_cols, min_events=10):
 
     exclusion_report = pd.DataFrame(exclusion_records).drop_duplicates()
 
-    wide_counts = build_site_param_count_table(
-        df_filtered,
-        category_cols
-    )
+  wide_counts = build_site_param_count_table(
+    df_filtered,
+    numeric_cols
+  )
 
     return df_filtered, exclusion_report, wide_counts
 
