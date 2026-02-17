@@ -692,7 +692,7 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
 
     exclusion_report = pd.DataFrame(exclusion_records).drop_duplicates()
 
-  wide_counts = build_site_param_count_table(
+wide_counts = build_site_param_count_table(
     df_filtered,
     numeric_cols
   )
