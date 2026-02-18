@@ -541,6 +541,27 @@ def filter_dsr_ready(df, category_cols=None, min_events=10):
         wide_counts = pd.DataFrame()
 
     return df.reset_index(drop=True), exclusion_report, wide_counts
+def build_site_param_count_table(df, category_cols):
+    """
+    Create wide pivot table: rows = site, columns = parameters,
+    values = # of valid (non‑NaN) events.
+    """
+    df = df.copy()
+    site_col = find_col(df, COLUMN_MAP["site"])
+    if not site_col:
+        return pd.DataFrame()
+
+    param_cols = [c for c in category_cols if c in df.columns]
+    if not param_cols:
+        return pd.DataFrame()
+
+    wide = (
+        df.groupby(site_col)[param_cols]
+        .apply(lambda x: x.notna().sum())
+        .reset_index()
+    )
+
+    return wide
 
 
 
