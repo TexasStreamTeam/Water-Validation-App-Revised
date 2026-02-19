@@ -785,12 +785,12 @@ with tabs[7]:
     st.dataframe(summary_filtered["site_param_counts"])
 
         # Checkbox to apply DSR filter
-        apply_dsr_filter = st.checkbox(
+    apply_dsr_filter = st.checkbox(
             "Apply DSR filter (≥3 sites per watershed AND ≥10 events per parameter per site)",
             value=True
         )
 
-        if apply_dsr_filter:
+    if apply_dsr_filter:
             dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
                 dsr_ready_df,
                 all_param_cols,
@@ -802,13 +802,13 @@ with tabs[7]:
             )
 
             st.markdown("### Exclusion Report (why site/parameter combos were removed)")
-            if not exclusion_report.empty:
+    if not exclusion_report.empty:
                 st.dataframe(exclusion_report)
             else:
                 st.info("No exclusions applied. All parameters passed the DSR criteria.")
 
             st.markdown("### Site × Parameter Count Table (wide)")
-            if not wide_counts.empty:
+    if not wide_counts.empty:
                 st.dataframe(wide_counts)
             else:
                 st.info("No data to display in wide count table.")
