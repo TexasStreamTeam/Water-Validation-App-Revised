@@ -651,7 +651,7 @@ if has_data:
     clean_context = get_dsr_ready_df(st.session_state["raw_df"])
     categories = clean_context["categories"]
     general_df = clean_context["general_df"]
-    clean_df = clean_context["clean_df"]
+    dsr_ready_df = clean_context["dsr_ready_df"]
     all_param_cols = clean_context["all_param_cols"]
 
 # --- Tab 2: Site ID Description Check ---------------------------------------
