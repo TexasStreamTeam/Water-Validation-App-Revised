@@ -881,7 +881,7 @@ with tabs[8]:
     if not has_data:
         st.warning("Please upload a CSV file first.")
     else:
-        numeric_cols = clean_df.select_dtypes(include=[np.number]).columns.tolist()
+        numeric_cols = dsr_ready_df.select_dtypes(include=[np.number]).columns.tolist()
         if not numeric_cols:
             st.info("No numeric columns found for IQR-based outlier cleaning.")
         else:
