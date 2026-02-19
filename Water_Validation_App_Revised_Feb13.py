@@ -1073,5 +1073,3 @@ This tab summarizes the cleaning rules implemented by this app.
 
 st.caption("Built to support standardized cleaning of water quality data for DSR/WSR workflows")
 
-git pull origin main
-
