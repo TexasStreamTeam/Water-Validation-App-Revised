@@ -636,9 +636,6 @@ def filter_dsr_ready(df, category_cols, min_events=10):
         min_events=min_events
     )
 
-    # ---------------------------------------------------
-    # Apply exclusions (set those site/param combos to NaN)
-    # ---------------------------------------------------
 df_param_filtered = apply_param_level_exclusions(
     df,
     exclusion_report,
