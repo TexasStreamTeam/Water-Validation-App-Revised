@@ -864,9 +864,9 @@ with tabs[7]:
                 key="download_exclusion"
             )
             if 'wide_counts' in locals() and not wide_counts.empty:
-    buf_wide = io.BytesIO()
-    wide_counts.to_csv(buf_wide, index=False)
-    st.download_button(
+        buf_wide = io.BytesIO()
+        wide_counts.to_csv(buf_wide, index=False)
+        st.download_button(
         label="Download Site-Parameter Count Table CSV",
         data=buf_wide.getvalue(),
         file_name="site_parameter_event_counts.csv",
