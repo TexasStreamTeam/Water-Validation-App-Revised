@@ -804,16 +804,16 @@ with tabs[7]:
             st.markdown("### Exclusion Report (why site/parameter combos were removed)")
     if not exclusion_report.empty:
                 st.dataframe(exclusion_report)
-            else:
+    else:
                 st.info("No exclusions applied. All parameters passed the DSR criteria.")
 
             st.markdown("### Site × Parameter Count Table (wide)")
     if not wide_counts.empty:
                 st.dataframe(wide_counts)
-            else:
+    else:
                 st.info("No data to display in wide count table.")
 
-        else:
+    else:
             dsr_ready_df = dsr_ready_df.copy()
             exclusion_report = pd.DataFrame()
             wide_counts = pd.DataFrame()
@@ -835,7 +835,7 @@ with tabs[7]:
         )
 
         # Download Exclusion Report
-        if not exclusion_report.empty:
+    if not exclusion_report.empty:
             buf_excl = io.BytesIO()
             exclusion_report.to_csv(buf_excl, index=False)
             st.download_button(
@@ -847,7 +847,7 @@ with tabs[7]:
             )
 
         # Download Wide Count Table
-        if not wide_counts.empty:
+    if not wide_counts.empty:
             buf_wide = io.BytesIO()
             wide_counts.to_csv(buf_wide, index=False)
             st.download_button(
