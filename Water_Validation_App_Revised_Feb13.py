@@ -809,9 +809,9 @@ with tabs[7]:
         )
 
         if apply_dsr_filter:
-            dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(clean_df, all_param_cols, min_events=10)
+            dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(dsr_ready_df, all_param_cols, min_events=10)
             st.success(
-                f"Number of DSR-ready rows: {dsr_ready_df.shape[0]} (out of {clean_df.shape[0]} cleaned rows)."
+                f"Number of DSR-ready rows: {dsr_ready_df.shape[0]} (out of {dsr_ready_df.shape[0]} cleaned rows)."
             )
 
             st.markdown("### Exclusion Report (why site/parameter combos were removed)")
@@ -834,7 +834,7 @@ with tabs[7]:
         st.markdown("### Download outputs")
 
         buf_clean = io.BytesIO()
-        clean_df.to_csv(buf_clean, index=False)
+        dsr_ready_df.to_csv(buf_clean, index=False)
         st.download_button(
             label="Download Cleaned CSV",
             data=buf_clean.getvalue(),
