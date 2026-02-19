@@ -761,102 +761,38 @@ with tabs[6]:
             st.warning("No RIPARIAN columns found.")
 
 # --- Tab 8: Run All & Exports -----------------------------------------------
-# --- Tab 8: Run All & Exports -----------------------------------------------
+
 with tabs[7]:
     st.subheader("Run All & Exports")
 
     if not has_data:
         st.warning("Please upload a CSV file first.")
     else:
-        st.markdown("### DSR Quantity Summary (raw cleaned)")
-    if apply_dsr_filter:
-            dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
-            dsr_ready_df,
-            all_param_cols,
-            min_events=10
-        )
-    # Recompute summary AFTER filtering for display
-    summary_filtered = dsr_quantity_summary(dsr_ready_df, all_param_cols)
-
-    st.markdown("**Number of sites per watershed**")
-    st.dataframe(summary_filtered["watershed_site_counts"])
-        
-    st.markdown("**Number of valid events per parameter per site**")
-    st.dataframe(summary_filtered["site_param_counts"])
-
         # Checkbox to apply DSR filter
-    apply_dsr_filter = st.checkbox(
+        apply_dsr_filter = st.checkbox(
             "Apply DSR filter (≥3 sites per watershed AND ≥10 events per parameter per site)",
             value=True
         )
 
-    if apply_dsr_filter:
+        # Start with all cleaned data
+        dsr_ready_df = general_df.copy()  # general_df = cleaned data from previous steps
+
+        if apply_dsr_filter:
+            # Apply the DSR filter
             dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
                 dsr_ready_df,
                 all_param_cols,
                 min_events=10
             )
-
             st.success(
                 f"Number of DSR-ready rows: {dsr_ready_df.shape[0]} (out of {general_df.shape[0]} cleaned rows)."
             )
-
-            st.markdown("### Exclusion Report (why site/parameter combos were removed)")
-    if not exclusion_report.empty:
-                st.dataframe(exclusion_report)
-    else:
-                st.info("No exclusions applied. All parameters passed the DSR criteria.")
-
-    st.markdown("### Site × Parameter Count Table (wide)")
-    if not wide_counts.empty:
-                st.dataframe(wide_counts)
-    else:
-                st.info("No data to display in wide count table.")
-
-    else:
-            dsr_ready_df = dsr_ready_df.copy()
+        else:
             exclusion_report = pd.DataFrame()
             wide_counts = pd.DataFrame()
             st.info("DSR filter is OFF. All cleaned data are included.")
 
-        # Preview cleaned DSR-ready data
-        st.markdown("### Preview of DSR-ready data")
-        st.dataframe(dsr_ready_df.head(50))
-
-        # Download cleaned DSR-ready CSV
-        buf_dsr = io.BytesIO()
-        dsr_ready_df.to_csv(buf_dsr, index=False)
-        st.download_button(
-            label="Download DSR-ready CSV",
-            data=buf_dsr.getvalue(),
-            file_name="cleaned_data_DSR_ready.csv",
-            mime="text/csv",
-            key="download_dsr"
-        )
-
-        # Download Exclusion Report
-    if not exclusion_report.empty:
-            buf_excl = io.BytesIO()
-            exclusion_report.to_csv(buf_excl, index=False)
-            st.download_button(
-                label="Download Exclusion Report CSV",
-                data=buf_excl.getvalue(),
-                file_name="DSR_exclusion_report.csv",
-                mime="text/csv",
-                key="download_exclusion"
-            )
-
-        # Download Wide Count Table
-    if not wide_counts.empty:
-            buf_wide = io.BytesIO()
-            wide_counts.to_csv(buf_wide, index=False)
-            st.download_button(
-                label="Download Site-Parameter Count Table CSV",
-                data=buf_wide.getvalue(),
-                file_name="site_parameter_event_counts.csv",
-                mime="text/csv",
-                key="download_site_param_counts"
-            )
+        # Recompute summary AFTER filtering for displ
 
 
 # --- Tab 9: Outlier Cleaner (IQR) -------------------------------------------
