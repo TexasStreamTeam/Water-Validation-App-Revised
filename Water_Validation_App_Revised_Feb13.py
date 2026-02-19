@@ -783,7 +783,7 @@ with tabs[6]:
             st.write("Detected RIPARIAN columns:")
             st.write(rip_cols)
             view_cols = rip_cols + [c for c in dsr_ready_df.columns if c.startswith("QC_Riparian")]
-            st.dataframe(clean_df[view_cols].head(50))
+            st.dataframe(dsr_ready_df[view_cols].head(50))
         else:
             st.warning("No RIPARIAN columns found.")
 
