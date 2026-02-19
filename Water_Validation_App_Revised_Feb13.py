@@ -593,7 +593,7 @@ def filter_dsr_ready(df, category_cols, min_events=10):
 # -----------------------------------------------------------------------------
 # 10. Helper: compute all cleaned dfs
 # -----------------------------------------------------------------------------
-    def get_dsr_ready_df(raw_df):
+def get_dsr_ready_df(raw_df):
     """Run the full cleaning pipeline & categorization."""
     cats = categorize_columns(raw_df)
     gen_df = general_cleaning(raw_df)
