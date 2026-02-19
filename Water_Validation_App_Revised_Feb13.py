@@ -826,7 +826,7 @@ with tabs[7]:
             st.info("DSR filter is OFF. All cleaned data are included.")
 
             st.markdown("### Site × Parameter Count Table (wide)")
-            st.dataframe(wide_counts)
+        
 
         st.markdown("### Preview of fully cleaned data")
         st.dataframe(clean_df.head(50))
