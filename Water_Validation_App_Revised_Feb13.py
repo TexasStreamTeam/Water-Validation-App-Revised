@@ -769,7 +769,7 @@ with tabs[7]:
         st.warning("Please upload a CSV file first.")
     else:
         st.markdown("### DSR Quantity Summary (raw cleaned)")
-       if apply_dsr_filter:
+    if apply_dsr_filter:
             dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
             dsr_ready_df,
             all_param_cols,
