@@ -752,7 +752,7 @@ with tabs[4]:
             st.write("Detected ECOLI columns:")
             st.write(ecoli_cols)
             view_cols = ecoli_cols + [c for c in clean_df.columns if c.startswith("QC_Ecoli")]
-            st.dataframe(clean_df[view_cols].head(50))
+            st.dataframe(dsr_ready_df[view_cols].head(50))
         else:
             st.warning("No ECOLI columns found.")
 
@@ -767,7 +767,7 @@ with tabs[5]:
         if adv_cols:
             st.write("Detected ADVANCED columns:")
             st.write(adv_cols)
-            st.dataframe(clean_df[adv_cols].head(50))
+            st.dataframe(dsr_ready_df[adv_cols].head(50))
         else:
             st.warning("No ADVANCED columns found.")
 
@@ -782,7 +782,7 @@ with tabs[6]:
         if rip_cols:
             st.write("Detected RIPARIAN columns:")
             st.write(rip_cols)
-            view_cols = rip_cols + [c for c in clean_df.columns if c.startswith("QC_Riparian")]
+            view_cols = rip_cols + [c for c in dsr_ready_df.columns if c.startswith("QC_Riparian")]
             st.dataframe(clean_df[view_cols].head(50))
         else:
             st.warning("No RIPARIAN columns found.")
@@ -795,7 +795,7 @@ with tabs[7]:
         st.warning("Please upload a CSV file first.")
     else:
         st.markdown("### DSR Quantity Summary (raw cleaned)")
-        summary = dsr_quantity_summary(clean_df, all_param_cols)
+        summary = dsr_quantity_summary(dsr_ready_df, all_param_cols)
 
         st.markdown("**Number of sites per watershed**")
         st.dataframe(summary["watershed_site_counts"])
@@ -821,7 +821,7 @@ with tabs[7]:
             st.dataframe(wide_counts)
 
         else:
-            dsr_ready_df = clean_df.copy()
+            dsr_ready_df = dsr_ready_df.copy()
             exclusion_report = pd.DataFrame()
             st.info("DSR filter is OFF. All cleaned data are included.")
 
