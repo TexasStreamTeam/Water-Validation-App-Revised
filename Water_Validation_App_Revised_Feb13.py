@@ -1,97 +1,104 @@
-def filter_dsr_ready(df, category_cols=None, min_events=10):
-    """
-    DSR logic:
-      1. Remove watersheds with ≤ 3 sites.
-      2. For remaining sites, remove parameters with ≤ min_events values per site.
-      3. Drop rows where all parameters are NaN.
-      4. Return filtered df + exclusion report + wide count table.
-    """
+# Water Validation App
 
-    df = df.copy()
-    site_col = find_col(df, COLUMN_MAP["site"])
-    watershed_col = find_col(df, COLUMN_MAP["watershed"])
+import streamlit as st
+import pandas as pd
 
-    if not site_col:
-        return df, pd.DataFrame(), pd.DataFrame()
+# Define functions
 
-    exclusion_records = []
+def find_col(df, col_name):
+    return df.columns.get_loc(col_name)
 
-    # --------------------------------------------------
-    # RULE 1: Remove watersheds with ≤ 3 sites
-    # --------------------------------------------------
-    if watershed_col:
-        site_counts = df.groupby(watershed_col)[site_col].nunique()
-        bad_watersheds = site_counts[site_counts <= 3].index.tolist()
 
-        for ws in bad_watersheds:
-            exclusion_records.append({
-                "Watershed": ws,
-                "Site": "",
-                "Parameter": "",
-                "n_values": "",
-                "decision": "EXCLUDE (≤3 sites in watershed)"
-            })
+def categorize_columns(df):
+    # Categorization logic here
+    pass
 
-        df = df[~df[watershed_col].isin(bad_watersheds)]
 
-    # --------------------------------------------------
-    # RULE 2: Remove parameters with ≤ min_events values per site
-    # --------------------------------------------------
-    if not category_cols:
-        category_cols = []
-    
-    param_cols = [c for c in category_cols if c in df.columns]
+def parse_datetime(df, date_col):
+    df[date_col] = pd.to_datetime(df[date_col])
+    return df
 
-    df["_site_norm"] = df[site_col].astype(str).str.strip()
 
-    # Build a mapping of (site, parameter) pairs that fail the threshold
-    params_to_exclude = set()
+def general_cleaning(df):
+    # General cleaning logic here
+    pass
 
-    for col in param_cols:
-        counts = df.groupby("_site_norm")[col].apply(lambda x: x.notna().sum())
-        bad_sites = counts[counts <= min_events].index.tolist()
 
-        for site in bad_sites:
-            params_to_exclude.add((site, col))
-            watershed_value = ""
-            if watershed_col:
-                ws_data = df.loc[df["_site_norm"] == site, watershed_col]
-                if len(ws_data) > 0:
-                    watershed_value = ws_data.iloc[0]
-            
-            exclusion_records.append({
-                "Watershed": watershed_value,
-                "Site": site,
-                "Parameter": col,
-                "n_values": int(counts[site]),
-                "decision": f"EXCLUDE (≤{min_events} values)"
-            })
+def clean_core(df):
+    # Core cleaning logic here
+    pass
 
-    # Apply exclusions: set matching (site, parameter) pairs to NaN
-    for (site, col) in params_to_exclude:
-        df.loc[df["_site_norm"] == site, col] = np.nan
 
-    # --------------------------------------------------
-    # RULE 3: Drop rows where ALL parameters are NaN
-    # --------------------------------------------------
-    if param_cols:
-        df = df.dropna(subset=param_cols, how="all")
+def clean_ecoli(df):
+    # E. coli cleaning logic here
+    pass
 
-    df = df.drop(columns=["_site_norm"], errors="ignore")
 
-    # --------------------------------------------------
-    # Build outputs
-    # --------------------------------------------------
-    exclusion_report = pd.DataFrame(exclusion_records)
+def clean_advanced(df):
+    # Advanced cleaning logic here
+    pass
 
-    # Wide table: site × parameter counts
-    if param_cols:
-        wide_counts = (
-            df.groupby(site_col)[param_cols]
-            .apply(lambda x: x.notna().sum())
-            .reset_index()
-        )
-    else:
-        wide_counts = pd.DataFrame()
 
-    return df.reset_index(drop=True), exclusion_report, wide_counts
+def clean_riparian(df):
+    # Riparian cleaning logic here
+    pass
+
+
+def filter_dsr_ready(df, params_to_exclude):
+    # Updated filtering logic here
+    filtered_df = df[~df['parameter'].isin(params_to_exclude)]
+    return filtered_df
+
+
+def build_site_param_count_table(df):
+    # Logic to build count table
+    pass
+
+
+def iqr_outlier_cleaner(df):
+    # Logic to clean outliers
+    pass
+
+
+def get_clean_dfs(df):
+    # Logic to get cleaned dataframes
+    pass
+
+# Streamlit UI
+
+st.title('Water Validation App')
+
+# Tabs
+
+uploaded_file = st.file_uploader('Upload File')
+
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    st.write(df)
+
+st.sidebar.title('Site ID Description Check')
+# Other UI components for various validation tabs
+
+st.sidebar.header('GENERAL Validation')
+# UI elements
+
+st.sidebar.header('CORE Validation')
+# UI elements
+
+st.sidebar.header('ECOLI Validation')
+# UI elements
+
+st.sidebar.header('ADVANCED Validation')
+# UI elements
+
+st.sidebar.header('RIPARIAN Validation')
+# UI elements
+
+st.sidebar.button('Run All & Exports')
+# Logic to run all validations and export results
+
+st.sidebar.button('Outlier Cleaner')
+# Outlier cleaning logic
+
+st.sidebar.button('Cleaning Guide')
+# Information about cleaning methods
