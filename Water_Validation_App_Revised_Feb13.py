@@ -751,7 +751,7 @@ with tabs[4]:
         if ecoli_cols:
             st.write("Detected ECOLI columns:")
             st.write(ecoli_cols)
-            view_cols = ecoli_cols + [c for c in clean_df.columns if c.startswith("QC_Ecoli")]
+            view_cols = ecoli_cols + [c for c in dsr_ready_df.columns if c.startswith("QC_Ecoli")]
             st.dataframe(dsr_ready_df[view_cols].head(50))
         else:
             st.warning("No ECOLI columns found.")
