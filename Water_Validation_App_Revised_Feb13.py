@@ -823,7 +823,6 @@ with tabs[7]:
         else:
             dsr_ready_df = clean_df.copy()
             exclusion_report = pd.DataFrame()
-            wide_counts = build_site_param_count_table(clean_df, all_param_cols)
             st.info("DSR filter is OFF. All cleaned data are included.")
 
             st.markdown("### Site × Parameter Count Table (wide)")
