@@ -776,13 +776,13 @@ with tabs[7]:
             min_events=10
         )
     # Recompute summary AFTER filtering for display
-        summary_filtered = dsr_quantity_summary(dsr_ready_df, all_param_cols)
+    summary_filtered = dsr_quantity_summary(dsr_ready_df, all_param_cols)
 
-        st.markdown("**Number of sites per watershed**")
-        st.dataframe(summary_filtered["watershed_site_counts"])
+    st.markdown("**Number of sites per watershed**")
+    st.dataframe(summary_filtered["watershed_site_counts"])
         
-        st.markdown("**Number of valid events per parameter per site**")
-        st.dataframe(summary_filtered["site_param_counts"])
+    st.markdown("**Number of valid events per parameter per site**")
+    st.dataframe(summary_filtered["site_param_counts"])
 
         # Checkbox to apply DSR filter
         apply_dsr_filter = st.checkbox(
