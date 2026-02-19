@@ -626,10 +626,14 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     # ---------------------------------------------------
     # STEP 2 — Count valid values per site/parameter
     # ---------------------------------------------------
-    exclusion_rows = []
-    for p in checked_params:
-        if p not in df.columns:
-            continue
+    # ---------------------------------------------------
+# STEP 2 — Count valid values per site/parameter
+# ---------------------------------------------------
+exclusion_rows = []
+
+for p in checked_params:
+    if p not in df.columns:
+        continue
 
     # Force numeric for counting
     numeric_series = pd.to_numeric(df[p], errors="coerce")
@@ -651,8 +655,8 @@ def filter_dsr_ready(df, category_cols, min_events=10):
                 "reason": f"≤{min_events} valid numeric values"
             })
 
-
-    exclusion_report = pd.DataFrame(exclusion_rows)
+    exclusion_rows = []
+    
 
     # ---------------------------------------------------
     # STEP 3 — Remove excluded parameters per site
