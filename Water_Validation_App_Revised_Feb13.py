@@ -627,23 +627,30 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     # STEP 2 — Count valid values per site/parameter
     # ---------------------------------------------------
     exclusion_rows = []
+for p in checked_params:
+    if p not in df.columns:
+        continue
 
-    for p in checked_params:
-        counts = (
-            df.groupby(site_col)[p]
-            .apply(lambda x: x.notna().sum())
-            .reset_index(name="n_valid")
-        )
+    # Force numeric for counting
+    numeric_series = pd.to_numeric(df[p], errors="coerce")
 
-        for _, row in counts.iterrows():
-            if row["n_valid"] <= min_events:
-                exclusion_rows.append({
-                    site_col: row[site_col],
-                    "parameter": p,
-                    "n_valid": row["n_valid"],
-                    "decision": "EXCLUDE",
-                    "reason": f"≤{min_events} valid values"
-                })
+    counts = (
+        df.assign(_numeric=numeric_series)
+          .groupby(site_col)["_numeric"]
+          .apply(lambda x: x.notna().sum())
+          .reset_index(name="n_valid")
+    )
+
+    for _, row in counts.iterrows():
+        if row["n_valid"] <= min_events:
+            exclusion_rows.append({
+                site_col: row[site_col],
+                "parameter": p,
+                "n_valid": row["n_valid"],
+                "decision": "EXCLUDE",
+                "reason": f"≤{min_events} valid numeric values"
+            })
+
 
     exclusion_report = pd.DataFrame(exclusion_rows)
 
