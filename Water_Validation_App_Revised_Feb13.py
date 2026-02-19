@@ -629,7 +629,7 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     exclusion_rows = []
     for p in checked_params:
         if p not in df.columns:
-        continue
+            continue
 
     # Force numeric for counting
     numeric_series = pd.to_numeric(df[p], errors="coerce")
