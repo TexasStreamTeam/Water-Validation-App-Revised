@@ -807,7 +807,7 @@ with tabs[7]:
     else:
                 st.info("No exclusions applied. All parameters passed the DSR criteria.")
 
-            st.markdown("### Site × Parameter Count Table (wide)")
+    st.markdown("### Site × Parameter Count Table (wide)")
     if not wide_counts.empty:
                 st.dataframe(wide_counts)
     else:
