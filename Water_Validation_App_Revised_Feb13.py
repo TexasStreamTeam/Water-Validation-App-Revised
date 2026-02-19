@@ -39,7 +39,7 @@ COLUMN_MAP = {
     "air_temp": ["Air Temperature (° C)", "Air Temp (° C)"],
     "water_temp": ["Water Temperature (° C)", "Water Temp (° C)"],
     "ph": ["pH (standard units)", "pH"],
-    "cond": ["Conductivity (?S/cm)", "Conductivity (µS/cm)", "Conductivity (uS/cm)"],
+    "cond": ["Conductivity (?S/cm)", "Conductivity(µS/cm)", "Conductivity (uS/cm)"],
     "tds": ["Total Dissolved Solids (mg/L)", "TDS (mg/L)"],
     "salinity": ["Salinity (ppt)"],
     "flow_severity": ["Flow Severity", "Flow severity"],
