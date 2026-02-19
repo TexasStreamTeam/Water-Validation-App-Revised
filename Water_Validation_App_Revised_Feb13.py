@@ -502,6 +502,10 @@ def build_exclusion_report(df, checked_params, min_events=10):
     """
     Build a tidy table explaining which site-parameter combos are excluded
     and why (insufficient valid values).
+
+    Rule:
+      KEEP  → n_valid > min_events
+      EXCLUDE → n_valid <= min_events
     """
     site_col = find_col(df, COLUMN_MAP["site"])
     if not site_col:
@@ -514,19 +518,21 @@ def build_exclusion_report(df, checked_params, min_events=10):
         return pd.DataFrame(columns=[site_col, "parameter", "n_valid", "decision", "reason"])
 
     param_counts = param_counts.rename(columns={"n_events": "n_valid"})
+
+    # STRICT RULE: must be GREATER THAN min_events
     param_counts["decision"] = np.where(
-        param_counts["n_valid"] >= min_events,
+        param_counts["n_valid"] > min_events,
         "KEEP",
         "EXCLUDE"
     )
+
     param_counts["reason"] = np.where(
         param_counts["decision"] == "EXCLUDE",
-        f"<{min_events} valid values for this parameter at this site",
+        f"≤{min_events} valid values for this parameter at this site",
         ""
     )
 
     return param_counts[[site_col, "parameter", "n_valid", "decision", "reason"]]
-
 
 def apply_param_level_exclusions(df, exclusion_report, category_cols):
     """
