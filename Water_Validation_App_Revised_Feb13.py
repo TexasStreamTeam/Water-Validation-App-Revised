@@ -761,7 +761,7 @@ with tabs[6]:
             st.warning("No RIPARIAN columns found.")
 
 # --- Tab 8: Run All & Exports -----------------------------------------------
-
+# --- Tab 8: Run All & Exports -----------------------------------------------
 with tabs[7]:
     st.subheader("Run All & Exports")
 
@@ -792,8 +792,71 @@ with tabs[7]:
             wide_counts = pd.DataFrame()
             st.info("DSR filter is OFF. All cleaned data are included.")
 
-        # Recompute summary AFTER filtering for displ
+        # Recompute summary AFTER filtering for display
+        summary_filtered = dsr_quantity_summary(dsr_ready_df, all_param_cols)
 
+        st.markdown("### Number of sites per watershed")
+        if not summary_filtered["watershed_site_counts"].empty:
+            st.dataframe(summary_filtered["watershed_site_counts"])
+        else:
+            st.info("No watershed site count data available.")
+
+        st.markdown("### Number of valid events per parameter per site")
+        if not summary_filtered["site_param_counts"].empty:
+            st.dataframe(summary_filtered["site_param_counts"])
+        else:
+            st.info("No site-parameter count data available.")
+
+        st.markdown("### Site × Parameter Count Table (wide)")
+        if not wide_counts.empty:
+            st.dataframe(wide_counts)
+        else:
+            st.info("No data to display in wide count table.")
+
+        st.markdown("### Exclusion Report (why site/parameter combos were removed)")
+        if not exclusion_report.empty:
+            st.dataframe(exclusion_report)
+        else:
+            st.info("No exclusions applied. All parameters passed the DSR criteria.")
+
+        # Preview cleaned DSR-ready data
+        st.markdown("### Preview of DSR-ready data")
+        st.dataframe(dsr_ready_df.head(50))
+
+        # Download cleaned DSR-ready CSV
+        buf_dsr = io.BytesIO()
+        dsr_ready_df.to_csv(buf_dsr, index=False)
+        st.download_button(
+            label="Download DSR-ready CSV",
+            data=buf_dsr.getvalue(),
+            file_name="cleaned_data_DSR_ready.csv",
+            mime="text/csv",
+            key="download_dsr"
+        )
+
+        # Download Exclusion Report CSV
+        if not exclusion_report.empty:
+            buf_excl = io.BytesIO()
+            exclusion_report.to_csv(buf_excl, index=False)
+            st.download_button(
+                label="Download Exclusion Report CSV",
+                data=buf_excl.getvalue(),
+                file_name="DSR_exclusion_report.csv",
+                mime="text/csv",
+                key="download_exclusion"
+            )
+
+        # Download Wide Count Table CSV
+        if not wide_counts.empty:
+            buf_wide = io.BytesIO()
+            wide_counts.to_csv(buf_wide, index=False)
+            st.download_button(
+                label="Download Site-Parameter Count Table CSV",
+                data=buf_wide.getvalue(),
+                file_name="site_parameter_event_counts.csv",
+                mime="text/csv",
+                key="download_site_param_counts"
+            )
 
 # --- Tab 9: Outlier Cleaner (IQR) -------------------------------------------
 with tabs[8]:
