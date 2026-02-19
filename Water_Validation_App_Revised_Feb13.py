@@ -584,7 +584,7 @@ def build_site_param_count_table(df, category_cols):
     return wide
 
 
-def filter_dsr_ready(df, category_cols, min_events=10):
+    def filter_dsr_ready(df, category_cols, min_events=10):
 
     df = df.copy()
 
@@ -631,7 +631,7 @@ def filter_dsr_ready(df, category_cols, min_events=10):
 # ---------------------------------------------------
 exclusion_rows = []
 
-for p in checked_params:
+    for p in checked_params:
     if p not in df.columns:
         continue
 
