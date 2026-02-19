@@ -692,7 +692,7 @@ for p in checked_params:
     # ---------------------------------------------------
     wide_count_table = build_site_param_count_table(df, checked_params)
 
-    return df.reset_index(drop=True), exclusion_report, wide_count_table
+return df.reset_index(drop=True), exclusion_report, wide_count_table
 
 
 # -----------------------------------------------------------------------------
