@@ -506,8 +506,11 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     Apply DSR rules:
     - ≥3 sites per watershed
     - ≥ min_events numeric values per site per parameter
+    Returns:
+        df_filtered: filtered DataFrame
+        exclusion_report: site/parameter exclusions
+        wide_count_table: pivot table of counts
     """
-
     df = df.copy()
     site_col = find_col(df, COLUMN_MAP["site"])
     watershed_col = find_col(df, COLUMN_MAP["watershed"])
@@ -522,13 +525,7 @@ def filter_dsr_ready(df, category_cols, min_events=10):
         return df, pd.DataFrame(), pd.DataFrame()
 
     param_counts = param_counts.rename(columns={"n_events": "n_valid"})
-
-    # KEEP if greater than or equal to min_events
-    param_counts["decision"] = np.where(
-        param_counts["n_valid"] >= min_events,
-        "KEEP",
-        "EXCLUDE"
-    )
+    param_counts["decision"] = np.where(param_counts["n_valid"] >= min_events, "KEEP", "EXCLUDE")
     param_counts["reason"] = np.where(
         param_counts["decision"] == "EXCLUDE",
         f"≤{min_events} valid numeric values at this site",
@@ -537,13 +534,12 @@ def filter_dsr_ready(df, category_cols, min_events=10):
 
     exclusion_report = param_counts.copy()
 
-    # STEP 2 — Apply parameter-level exclusions
-    excl = exclusion_report[exclusion_report["decision"] == "EXCLUDE"]
-    for _, row in excl.iterrows():
+    # STEP 2 — Apply parameter-level exclusions (set to NaN)
+    for _, row in exclusion_report[exclusion_report["decision"]=="EXCLUDE"].iterrows():
         site_val = row[site_col]
         param = row["parameter"]
         if param in df.columns:
-            df.loc[df[site_col] == site_val, param] = np.nan
+            df.loc[df[site_col]==site_val, param] = np.nan
 
     # STEP 3 — Watershed filter (must have ≥3 sites)
     if watershed_col:
@@ -551,19 +547,19 @@ def filter_dsr_ready(df, category_cols, min_events=10):
         good_ws = ws_counts[ws_counts["n_sites"] >= 3][watershed_col]
         df = df[df[watershed_col].isin(good_ws)]
 
-    # STEP 4 — Build wide count table for reporting
-    wide_count_table = exclusion_report.pivot_table(
+    # STEP 4 — Drop rows where all parameters are NaN
+    param_cols_existing = [c for c in category_cols if c in df.columns]
+    if param_cols_existing:
+        df = df.dropna(subset=param_cols_existing, how="all")
+
+    # STEP 5 — Build wide count table for reporting
+    wide_count_table = param_counts.pivot_table(
         index=site_col,
         columns="parameter",
         values="n_valid",
         aggfunc="first",
         fill_value=0
     ).reset_index()
-
-    # STEP 5 — Drop rows where all parameters are NaN
-    existing = [c for c in category_cols if c in df.columns]
-    if existing:
-        df = df.dropna(subset=existing, how="all")
 
     return df.reset_index(drop=True), exclusion_report, wide_count_table
 
@@ -773,13 +769,20 @@ with tabs[7]:
         st.warning("Please upload a CSV file first.")
     else:
         st.markdown("### DSR Quantity Summary (raw cleaned)")
-        summary = dsr_quantity_summary(dsr_ready_df, all_param_cols)
+       if apply_dsr_filter:
+            dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
+            dsr_ready_df,
+            all_param_cols,
+            min_events=10
+        )
+    # Recompute summary AFTER filtering for display
+        summary_filtered = dsr_quantity_summary(dsr_ready_df, all_param_cols)
 
         st.markdown("**Number of sites per watershed**")
-        st.dataframe(summary["watershed_site_counts"])
-
+        st.dataframe(summary_filtered["watershed_site_counts"])
+        
         st.markdown("**Number of valid events per parameter per site**")
-        st.dataframe(summary["site_param_counts"])
+        st.dataframe(summary_filtered["site_param_counts"])
 
         # Checkbox to apply DSR filter
         apply_dsr_filter = st.checkbox(
