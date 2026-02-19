@@ -662,12 +662,11 @@ if watershed_col:
 wide_count_table = build_site_param_count_table(
     df_param_filtered,
     checked_params
-) 
+)
+return (
+    df_param_filtered.reset_index(drop=True),
+    exclusion_report,wide_count_table)
 
-    return (
-        df_param_filtered.reset_index(drop=True),
-        exclusion_report,
-        wide_count_table)
 
 # -----------------------------------------------------------------------------
 # 9. OUTLIER CLEANER (IQR)
