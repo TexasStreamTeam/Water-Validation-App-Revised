@@ -498,40 +498,37 @@ def dsr_quantity_summary(df, category_cols):
     return summary
 
 
+# -----------------------------------------------------------------------------  
+# Filter DSR-ready data based on rules  
+# -----------------------------------------------------------------------------
 def filter_dsr_ready(df, category_cols, min_events=10):
     """
     Apply DSR rules:
     - ≥3 sites per watershed
-    - > min_events numeric values per site per parameter
+    - ≥ min_events numeric values per site per parameter
     """
 
     df = df.copy()
-
     site_col = find_col(df, COLUMN_MAP["site"])
     watershed_col = find_col(df, COLUMN_MAP["watershed"])
 
     if not site_col:
         return df, pd.DataFrame(), pd.DataFrame()
 
-    # ---------------------------------------------------
     # STEP 1 — Count numeric valid values per site/parameter
-    # ---------------------------------------------------
     summary = dsr_quantity_summary(df, category_cols)
     param_counts = summary["site_param_counts"].copy()
-
     if param_counts.empty:
         return df, pd.DataFrame(), pd.DataFrame()
 
     param_counts = param_counts.rename(columns={"n_events": "n_valid"})
 
-    # STRICT RULE:
-    # KEEP only if strictly greater than min_events
+    # KEEP if greater than or equal to min_events
     param_counts["decision"] = np.where(
-        param_counts["n_valid"] > min_events,
+        param_counts["n_valid"] >= min_events,
         "KEEP",
         "EXCLUDE"
     )
-
     param_counts["reason"] = np.where(
         param_counts["decision"] == "EXCLUDE",
         f"≤{min_events} valid numeric values at this site",
@@ -540,55 +537,35 @@ def filter_dsr_ready(df, category_cols, min_events=10):
 
     exclusion_report = param_counts.copy()
 
-    # ---------------------------------------------------
     # STEP 2 — Apply parameter-level exclusions
-    # ---------------------------------------------------
     excl = exclusion_report[exclusion_report["decision"] == "EXCLUDE"]
-
     for _, row in excl.iterrows():
         site_val = row[site_col]
         param = row["parameter"]
+        if param in df.columns:
+            df.loc[df[site_col] == site_val, param] = np.nan
 
-        if param not in df.columns:
-            continue
+    # STEP 3 — Watershed filter (must have ≥3 sites)
+    if watershed_col:
+        ws_counts = df.groupby(watershed_col)[site_col].nunique().reset_index(name="n_sites")
+        good_ws = ws_counts[ws_counts["n_sites"] >= 3][watershed_col]
+        df = df[df[watershed_col].isin(good_ws)]
 
-        df.loc[df[site_col] == site_val, param] = np.nan
+    # STEP 4 — Build wide count table for reporting
+    wide_count_table = exclusion_report.pivot_table(
+        index=site_col,
+        columns="parameter",
+        values="n_valid",
+        aggfunc="first",
+        fill_value=0
+    ).reset_index()
 
-    # Drop rows where ALL parameters are NaN
+    # STEP 5 — Drop rows where all parameters are NaN
     existing = [c for c in category_cols if c in df.columns]
     if existing:
         df = df.dropna(subset=existing, how="all")
 
-    # ---------------------------------------------------
-    # STEP 3 — Watershed filter (must have ≥3 sites)
-    # ---------------------------------------------------
-    if watershed_col:
-        ws_counts = (
-            df.groupby(watershed_col)[site_col]
-            .nunique()
-            .reset_index(name="n_sites")
-        )
-
-        good_ws = ws_counts[ws_counts["n_sites"] >= 3][watershed_col]
-        df = df[df[watershed_col].isin(good_ws)]
-
-    # ---------------------------------------------------
-    # STEP 4 — Build wide count table
-    # ---------------------------------------------------
-    wide_count_table = (
-        exclusion_report
-        .pivot_table(
-            index=site_col,
-            columns="parameter",
-            values="n_valid",
-            aggfunc="first",
-            fill_value=0
-        )
-        .reset_index()
-    )
-
     return df.reset_index(drop=True), exclusion_report, wide_count_table
-
 
 # -----------------------------------------------------------------------------
 # 10. Helper: compute all cleaned dfs
@@ -788,6 +765,7 @@ with tabs[6]:
             st.warning("No RIPARIAN columns found.")
 
 # --- Tab 8: Run All & Exports -----------------------------------------------
+# --- Tab 8: Run All & Exports -----------------------------------------------
 with tabs[7]:
     st.subheader("Run All & Exports")
 
@@ -803,46 +781,46 @@ with tabs[7]:
         st.markdown("**Number of valid events per parameter per site**")
         st.dataframe(summary["site_param_counts"])
 
+        # Checkbox to apply DSR filter
         apply_dsr_filter = st.checkbox(
             "Apply DSR filter (≥3 sites per watershed AND ≥10 events per parameter per site)",
-            value=False
+            value=True
         )
 
         if apply_dsr_filter:
-            dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(dsr_ready_df, all_param_cols, min_events=10)
+            dsr_ready_df, exclusion_report, wide_counts = filter_dsr_ready(
+                dsr_ready_df,
+                all_param_cols,
+                min_events=10
+            )
+
             st.success(
-                f"Number of DSR-ready rows: {dsr_ready_df.shape[0]} (out of {dsr_ready_df.shape[0]} cleaned rows)."
+                f"Number of DSR-ready rows: {dsr_ready_df.shape[0]} (out of {general_df.shape[0]} cleaned rows)."
             )
 
             st.markdown("### Exclusion Report (why site/parameter combos were removed)")
-            st.dataframe(exclusion_report)
+            if not exclusion_report.empty:
+                st.dataframe(exclusion_report)
+            else:
+                st.info("No exclusions applied. All parameters passed the DSR criteria.")
 
             st.markdown("### Site × Parameter Count Table (wide)")
-            st.dataframe(wide_counts)
+            if not wide_counts.empty:
+                st.dataframe(wide_counts)
+            else:
+                st.info("No data to display in wide count table.")
 
         else:
             dsr_ready_df = dsr_ready_df.copy()
             exclusion_report = pd.DataFrame()
+            wide_counts = pd.DataFrame()
             st.info("DSR filter is OFF. All cleaned data are included.")
 
-            st.markdown("### Site × Parameter Count Table (wide)")
-
-        
+        # Preview cleaned DSR-ready data
         st.markdown("### Preview of DSR-ready data")
         st.dataframe(dsr_ready_df.head(50))
 
-        st.markdown("### Download outputs")
-
-        buf_clean = io.BytesIO()
-        dsr_ready_df.to_csv(buf_clean, index=False)
-        st.download_button(
-            label="Download Cleaned CSV",
-            data=buf_clean.getvalue(),
-            file_name="cleaned_data.csv",
-            mime="text/csv",
-            key="download_clean"
-        )
-
+        # Download cleaned DSR-ready CSV
         buf_dsr = io.BytesIO()
         dsr_ready_df.to_csv(buf_dsr, index=False)
         st.download_button(
@@ -853,6 +831,7 @@ with tabs[7]:
             key="download_dsr"
         )
 
+        # Download Exclusion Report
         if not exclusion_report.empty:
             buf_excl = io.BytesIO()
             exclusion_report.to_csv(buf_excl, index=False)
@@ -863,16 +842,19 @@ with tabs[7]:
                 mime="text/csv",
                 key="download_exclusion"
             )
-        if 'wide_counts' in locals() and not wide_counts.empty:
+
+        # Download Wide Count Table
+        if not wide_counts.empty:
             buf_wide = io.BytesIO()
             wide_counts.to_csv(buf_wide, index=False)
             st.download_button(
-            label="Download Site-Parameter Count Table CSV",
-            data=buf_wide.getvalue(),
-            file_name="site_parameter_event_counts.csv",
-            mime="text/csv",
-            key="download_site_param_counts"
-        )
+                label="Download Site-Parameter Count Table CSV",
+                data=buf_wide.getvalue(),
+                file_name="site_parameter_event_counts.csv",
+                mime="text/csv",
+                key="download_site_param_counts"
+            )
+
 
 # --- Tab 9: Outlier Cleaner (IQR) -------------------------------------------
 with tabs[8]:
