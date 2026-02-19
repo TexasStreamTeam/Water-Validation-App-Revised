@@ -733,10 +733,10 @@ with tabs[3]:
             st.write("Detected CORE columns:")
             st.write(core_cols)
             qc_cols = [
-                c for c in clean_df.columns
+                c for c in dsr_ready_df.columns
                 if c.startswith("QC_") and "Ecoli" not in c and "Riparian" not in c
             ]
-            st.dataframe(clean_df[core_cols + qc_cols].head(50))
+            st.dataframe(dsr_ready_df[core_cols + qc_cols].head(50))
         else:
             st.warning("No CORE columns found.")
 
