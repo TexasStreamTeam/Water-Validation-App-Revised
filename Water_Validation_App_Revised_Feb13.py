@@ -667,7 +667,6 @@ return (
         df_param_filtered.reset_index(drop=True),
         exclusion_report,
         wide_count_table
-    )
 
 # -----------------------------------------------------------------------------
 # 9. OUTLIER CLEANER (IQR)
