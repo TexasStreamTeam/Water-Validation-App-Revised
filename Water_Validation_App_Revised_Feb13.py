@@ -863,17 +863,16 @@ with tabs[7]:
                 mime="text/csv",
                 key="download_exclusion"
             )
-
-        if wide_count_table is not None and not wide_count_table.empty:
-            buf_wide = io.BytesIO()
-            wide_count_table.to_csv(buf_wide, index=False)
-            st.download_button(
-                label="Download Site-Parameter Count Table CSV",
-                data=buf_wide.getvalue(),
-                file_name="site_parameter_event_counts.csv",
-                mime="text/csv",
-                key="download_site_param_counts"
-            )
+            if 'wide_counts' in locals() and not wide_counts.empty:
+    buf_wide = io.BytesIO()
+    wide_counts.to_csv(buf_wide, index=False)
+    st.download_button(
+        label="Download Site-Parameter Count Table CSV",
+        data=buf_wide.getvalue(),
+        file_name="site_parameter_event_counts.csv",
+        mime="text/csv",
+        key="download_site_param_counts"
+    )
 
 # --- Tab 9: Outlier Cleaner (IQR) -------------------------------------------
 with tabs[8]:
