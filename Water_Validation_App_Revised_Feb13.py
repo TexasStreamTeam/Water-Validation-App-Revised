@@ -648,7 +648,7 @@ has_data = "raw_df" in st.session_state
 
 clean_context = None
 if has_data:
-    clean_context = get_clean_dfs(st.session_state["raw_df"])
+    clean_context = get_dsr_ready_df(st.session_state["raw_df"])
     categories = clean_context["categories"]
     general_df = clean_context["general_df"]
     clean_df = clean_context["clean_df"]
