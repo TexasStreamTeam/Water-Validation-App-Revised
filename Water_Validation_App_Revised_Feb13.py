@@ -648,7 +648,7 @@ df_param_filtered = apply_param_level_exclusions(
     # ---------------------------------------------------
     # Watershed rule: >= 3 sites
     # ---------------------------------------------------
-    if watershed_col:
+if watershed_col:
         ws_counts = (
             df_param_filtered.groupby(watershed_col)[site_col]
             .nunique()
