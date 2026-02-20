@@ -580,7 +580,7 @@ def build_site_param_count_table(df, category_cols):
 def filter_dsr_ready(df, category_cols, min_events=10):
     """
     Apply DSR filtering:
-      - Exclude site/parameter combos with <= min_events valid values (per your request)
+      - Exclude site/parameter combos with <= min_events valid values
       - E. coli rule applies ONLY to ecoli_avg column
       - Watershed must have >=3 sites (if watershed column exists)
 
@@ -597,11 +597,10 @@ def filter_dsr_ready(df, category_cols, min_events=10):
         return df, empty, empty
 
     # ---------------------------------------------------
-    # Build parameter list to check
+    # Build parameter list to check (respect E. coli rule)
     # ---------------------------------------------------
     checked_params = []
 
-    # build list of ecoli subcolumns (filter out None)
     ecoli_subcols = [
         find_col(df, COLUMN_MAP[k]) for k in [
             "ecoli_cfu1","ecoli_cfu2","ecoli_colonies1","ecoli_colonies2",
@@ -615,58 +614,33 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     for p in category_cols:
         if p not in df.columns:
             continue
-
         if ecoli_avg_col:
-            # If this is the aggregated ecoli column, check it
             if p == ecoli_avg_col:
                 checked_params.append(p)
             else:
-                # Skip E. coli subcolumns (we only check ecoli_avg)
                 if p not in ecoli_subcols:
                     checked_params.append(p)
         else:
-            # No ecoli_avg present → check everything normally
             checked_params.append(p)
 
     # ---------------------------------------------------
-    # Build exclusion report (< = min_events per site/param)
+    # Build exclusion report using existing helper
+    #   build_exclusion_report keeps when n_valid >= threshold
+    #   We want to keep when n_valid > min_events
+    #   → pass min_events + 1
     # ---------------------------------------------------
-    # Note: build_exclusion_report currently uses min_events as threshold for KEEP when n_valid >= min_events.
-    # We want to EXCLUDE when n_valid <= min_events, so pass min_events+1 to keep the existing comparison,
-    # or adjust the report after building. To keep build_exclusion_report unchanged, we'll build the report here.
-    site_col_name = site_col
+    exclusion_report = build_exclusion_report(
+        df,
+        checked_params,
+        min_events=min_events + 1
+    )
 
-    # compute counts per site/parameter
-    records = []
-    for p in checked_params:
-        if p not in df.columns:
-            continue
-        counts = (
-            df.groupby(site_col_name)[p]
-            .apply(lambda x: x.notna().sum())
-            .reset_index(name="n_valid")
+    if not exclusion_report.empty:
+        # Fix the reason text to match your rule (<= min_events)
+        mask_excl = exclusion_report["decision"] == "EXCLUDE"
+        exclusion_report.loc[mask_excl, "reason"] = (
+            f"<= {min_events} valid values for this parameter at this site"
         )
-        counts["parameter"] = p
-        records.append(counts)
-
-    if records:
-        param_counts = pd.concat(records, ignore_index=True)
-    else:
-        param_counts = pd.DataFrame(columns=[site_col_name, "n_valid", "parameter"])
-
-    # Decision: KEEP only when n_valid > min_events, else EXCLUDE
-    if not param_counts.empty:
-        param_counts["decision"] = np.where(
-            param_counts["n_valid"] > min_events,
-            "KEEP",
-            "EXCLUDE"
-        )
-        param_counts["reason"] = np.where(
-            param_counts["decision"] == "EXCLUDE",
-            f"<={min_events} valid values for this parameter at this site",
-            ""
-        )
-    exclusion_report = param_counts[[site_col_name, "parameter", "n_valid", "decision", "reason"]]
 
     # ---------------------------------------------------
     # Apply exclusions (set those site/param combos to NaN)
@@ -692,7 +666,7 @@ def filter_dsr_ready(df, category_cols, min_events=10):
         ]
 
     # ---------------------------------------------------
-    # Wide summary table
+    # Wide summary table (after exclusions)
     # ---------------------------------------------------
     wide_count_table = build_site_param_count_table(
         df_param_filtered,
@@ -704,6 +678,7 @@ def filter_dsr_ready(df, category_cols, min_events=10):
         exclusion_report,
         wide_count_table
     )
+
 
 
 # -----------------------------------------------------------------------------
