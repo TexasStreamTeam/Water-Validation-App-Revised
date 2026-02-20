@@ -577,11 +577,10 @@ def build_site_param_count_table(df, category_cols):
 
     return wide
 
-
 def filter_dsr_ready(df, category_cols, min_events=10):
     """
     Apply DSR filtering:
-      - Require >= min_events valid values PER SITE/PARAM
+      - Exclude site/parameter combos with <= min_events valid values (per your request)
       - E. coli rule applies ONLY to ecoli_avg column
       - Watershed must have >=3 sites (if watershed column exists)
 
@@ -602,53 +601,86 @@ def filter_dsr_ready(df, category_cols, min_events=10):
     # ---------------------------------------------------
     checked_params = []
 
+    # build list of ecoli subcolumns (filter out None)
+    ecoli_subcols = [
+        find_col(df, COLUMN_MAP[k]) for k in [
+            "ecoli_cfu1","ecoli_cfu2","ecoli_colonies1","ecoli_colonies2",
+            "ecoli_size1","ecoli_size2","ecoli_dil1","ecoli_dil2",
+            "ecoli_temp","ecoli_hold","ecoli_blank_qc",
+            "ecoli_incubation_qc","ecoli_optimal_colony"
+        ]
+    ]
+    ecoli_subcols = [c for c in ecoli_subcols if c is not None]
+
     for p in category_cols:
         if p not in df.columns:
             continue
 
-        # If ecoli_avg exists:
         if ecoli_avg_col:
-            # Check ecoli_avg
+            # If this is the aggregated ecoli column, check it
             if p == ecoli_avg_col:
                 checked_params.append(p)
             else:
-                # Skip other E. coli sub-columns
-                ecoli_subcols = [
-                    find_col(df, COLUMN_MAP[k]) for k in [
-                        "ecoli_cfu1","ecoli_cfu2","ecoli_colonies1","ecoli_colonies2",
-                        "ecoli_size1","ecoli_size2","ecoli_dil1","ecoli_dil2",
-                        "ecoli_temp","ecoli_hold","ecoli_blank_qc",
-                        "ecoli_incubation_qc","ecoli_optimal_colony"
-                    ]
-                ]
+                # Skip E. coli subcolumns (we only check ecoli_avg)
                 if p not in ecoli_subcols:
                     checked_params.append(p)
         else:
-            # No ecoli column → check everything normally
+            # No ecoli_avg present → check everything normally
             checked_params.append(p)
 
     # ---------------------------------------------------
-    # Build exclusion report (< min_events per site/param)
+    # Build exclusion report (< = min_events per site/param)
     # ---------------------------------------------------
-    exclusion_report = build_exclusion_report(
-        df,
-        checked_params,
-        min_events=min_events
-    )
+    # Note: build_exclusion_report currently uses min_events as threshold for KEEP when n_valid >= min_events.
+    # We want to EXCLUDE when n_valid <= min_events, so pass min_events+1 to keep the existing comparison,
+    # or adjust the report after building. To keep build_exclusion_report unchanged, we'll build the report here.
+    site_col_name = site_col
+
+    # compute counts per site/parameter
+    records = []
+    for p in checked_params:
+        if p not in df.columns:
+            continue
+        counts = (
+            df.groupby(site_col_name)[p]
+            .apply(lambda x: x.notna().sum())
+            .reset_index(name="n_valid")
+        )
+        counts["parameter"] = p
+        records.append(counts)
+
+    if records:
+        param_counts = pd.concat(records, ignore_index=True)
+    else:
+        param_counts = pd.DataFrame(columns=[site_col_name, "n_valid", "parameter"])
+
+    # Decision: KEEP only when n_valid > min_events, else EXCLUDE
+    if not param_counts.empty:
+        param_counts["decision"] = np.where(
+            param_counts["n_valid"] > min_events,
+            "KEEP",
+            "EXCLUDE"
+        )
+        param_counts["reason"] = np.where(
+            param_counts["decision"] == "EXCLUDE",
+            f"<={min_events} valid values for this parameter at this site",
+            ""
+        )
+    exclusion_report = param_counts[[site_col_name, "parameter", "n_valid", "decision", "reason"]]
 
     # ---------------------------------------------------
     # Apply exclusions (set those site/param combos to NaN)
     # ---------------------------------------------------
-df_param_filtered = apply_param_level_exclusions(
-    df,
-    exclusion_report,
-    checked_params
-)
+    df_param_filtered = apply_param_level_exclusions(
+        df,
+        exclusion_report,
+        checked_params
+    )
 
     # ---------------------------------------------------
     # Watershed rule: >= 3 sites
     # ---------------------------------------------------
-if watershed_col:
+    if watershed_col:
         ws_counts = (
             df_param_filtered.groupby(watershed_col)[site_col]
             .nunique()
@@ -662,16 +694,17 @@ if watershed_col:
     # ---------------------------------------------------
     # Wide summary table
     # ---------------------------------------------------
-wide_count_table = build_site_param_count_table(
-    df_param_filtered,
-    checked_params
-)
+    wide_count_table = build_site_param_count_table(
+        df_param_filtered,
+        checked_params
+    )
 
-return (
-    df_param_filtered.reset_index(drop=True),
-    exclusion_report,
-    wide_count_table
-)
+    return (
+        df_param_filtered.reset_index(drop=True),
+        exclusion_report,
+        wide_count_table
+    )
+
 
 # -----------------------------------------------------------------------------
 # 9. OUTLIER CLEANER (IQR)
