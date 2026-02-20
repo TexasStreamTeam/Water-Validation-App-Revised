@@ -662,7 +662,7 @@ if watershed_col:
     # ---------------------------------------------------
     # Wide summary table
     # ---------------------------------------------------
-    wide_count_table = build_site_param_count_table(
+wide_count_table = build_site_param_count_table(
     df_param_filtered,
     checked_params
 )
