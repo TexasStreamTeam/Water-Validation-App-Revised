@@ -21,7 +21,7 @@ st.title("Water Quality Data Validation App")
 # 1. CONFIG – COLUMN NAMES (edit here if your headers differ slightly)
 # -----------------------------------------------------------------------------
 COLUMN_MAP = {
-    "site": ["Site ID", "Site ID: Site Name", "Site ID: Site Name ", "Site"],
+    "site": ["Site ID", "Site ID: Site Name", "Site ID: Site Name ", "Site", "Site ID: Site Name  ?"],
     "sample_date": ["Sample Date", "Date"],
     "sample_time": ["Sample Time Final Format", "Sample Time", "Time"],
     "watershed": ["Watershed", "Watershed Name"],  # optional
